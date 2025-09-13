@@ -13,19 +13,13 @@ const provider = JsonRpcProvider.buildnet(account);
 
 console.log('Deploying contract...');
 
-const byteCode = getScByteCode('build', 'main.wasm');
+const byteCode = getScByteCode('build', 'factory.wasm');
 
-const name = 'Massa';
-const constructorArgs = new Args().addString(name);
+const contract = await SmartContract.deploy(provider, byteCode, new Args(), {
+  coins: Mas.fromString('0.01'),
+});
 
-const contract = await SmartContract.deploy(
-  provider,
-  byteCode,
-  constructorArgs,
-  { coins: Mas.fromString('0.01') },
-);
-
-console.log('Contract deployed at:', contract.address);
+console.log('Factory Contract deployed at:', contract.address);
 
 const events = await provider.getEvents({
   smartContractAddress: contract.address,
