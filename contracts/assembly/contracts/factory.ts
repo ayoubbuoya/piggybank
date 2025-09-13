@@ -14,6 +14,11 @@ import { wrapMasToWMAS } from './lib/wrapping';
 import { WMAS_TOKEN_ADDRESS } from './storage';
 import { ISplitter } from './interfaces/ISplitter';
 import { u256 } from 'as-bignum/assembly';
+import { PersistentMap } from '@massalabs/massa-as-sdk/assembly/collections';
+import { onlyOwner } from './lib/ownership';
+
+// Mapping from token address to its corresponding eaglefi pool address
+const tokensPoolsMap = new PersistentMap<string, string>('tpools');
 
 /**
  * This function is meant to be called only one time: when the contract is deployed.
@@ -60,4 +65,30 @@ export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
   splitterContract.init(tokensWithPercentage, Context.caller());
 
   ReentrancyGuard.endNonReentrant();
+}
+
+export function getTokenPoolAddress(tokenAddress: string): StaticArray<u8> {
+  const pool = tokensPoolsMap.get(tokenAddress, null);
+  return pool ? stringToBytes(pool) : stringToBytes('');
+}
+
+export function setTokenPoolAddress(binaryArgs: StaticArray<u8>): void {
+  // Only the owner can set the token pool address
+  onlyOwner();
+
+  const args = new Args(binaryArgs);
+
+  const tokenAddress = args.nextString().expect('token address expected');
+  const poolAddress = args.nextString().expect('pool address expected');
+
+  tokensPoolsMap.set(tokenAddress, poolAddress);
+
+  generateEvent(
+    'Token pool address set: ' +
+      tokenAddress +
+      ' -> ' +
+      poolAddress +
+      ' by ' +
+      Context.caller().toString(),
+  );
 }
