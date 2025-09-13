@@ -67,7 +67,13 @@ export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
   ReentrancyGuard.endNonReentrant();
 }
 
-export function getTokenPoolAddress(tokenAddress: string): StaticArray<u8> {
+export function getTokenPoolAddress(
+  binaryArgs: StaticArray<u8>,
+): StaticArray<u8> {
+  const args = new Args(binaryArgs);
+
+  const tokenAddress = args.nextString().expect('token address expected');
+
   const pool = tokensPoolsMap.get(tokenAddress, null);
   return pool ? stringToBytes(pool) : stringToBytes('');
 }
