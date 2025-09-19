@@ -32,6 +32,15 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   // If you remove this check, someone could call your constructor function and reset your smart contract.
   assert(Context.isDeployingContract());
 
+  const args = new Args(binaryArgs);
+
+  const swapRouterAddress = args
+    .nextString()
+    .expect('swap router address expected');
+
+  // Set the eaglefi swap router address
+  Storage.set(EAGLE_SWAP_ROUTER_ADDRESS, swapRouterAddress);
+
   // Set the contract owner
   _setOwner(Context.caller().toString());
 

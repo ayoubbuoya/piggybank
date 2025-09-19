@@ -15,9 +15,18 @@ console.log('Deploying contract...');
 
 const byteCode = getScByteCode('build', 'factory.wasm');
 
-const contract = await SmartContract.deploy(provider, byteCode, new Args(), {
-  coins: Mas.fromString('0.01'),
-});
+const constructorArgs = new Args().addString(
+  'AS1Kf2KVdYghv9PeVcgQKVBpuVAqdvfwwMbGuffByxJbSMLqLvVo', // EagleFi Swap Router Address
+);
+
+const contract = await SmartContract.deploy(
+  provider,
+  byteCode,
+  constructorArgs,
+  {
+    coins: Mas.fromString('0.01'),
+  },
+);
 
 console.log('Factory Contract deployed at:', contract.address);
 
