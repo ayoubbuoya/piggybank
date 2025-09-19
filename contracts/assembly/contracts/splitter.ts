@@ -17,7 +17,11 @@ import { deserializeStringArray, serializeStringArray } from './lib/utils';
 import { u256 } from 'as-bignum/assembly';
 import { SafeMath256 } from './lib/safeMath';
 import { PersistentMap } from './lib/PersistentMap';
+import { IFactory } from './interfaces/IFactory';
+import { IEagleSwapRouter } from './interfaces/IEagleSwapRouter';
+import { SwapPath } from './structs/eaglefi/swapPath';
 
+const FACTORY_ADDRESS_KEY = 'factoryAddress';
 const tokensPercentagesMap = new PersistentMap<string, u64>('tpm');
 const allTokensAddressesKey: StaticArray<u8> =
   stringToBytes('allTokensAddresses');
@@ -57,6 +61,9 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   // Set the contract owner to the vault creator address
   _setOwner(vaultCreatorAddress);
 
+  // Store the factory address
+  Storage.set(FACTORY_ADDRESS_KEY, Context.caller().toString());
+
   // Initialize the reentrancy guard
   ReentrancyGuard.__ReentrancyGuard_init();
 }
@@ -68,20 +75,24 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
 
   const amount = args.nextU256().expect('amount expected');
   const isNative = args.nextBool().expect('isNative expected');
+  const coinsToUse = args.nextU64().expect('coinsToUse expected');
+  const deadline = args.nextU64().expect('deadline expected');
 
   const wmasToken = new IMRC20(new Address(WMAS_TOKEN_ADDRESS));
+
+  const calleeAddress = Context.callee();
+  const callerAddress = Context.caller();
 
   // If isNative is true, Wrap the native token (MAS) into WMAS
   if (isNative) {
     wrapMasToWMAS(amount, new Address(WMAS_TOKEN_ADDRESS));
   } else {
     // Transfer the tokens from the sender to this contract
-
     wmasToken.transferFrom(
       Context.caller(),
-      Context.callee(),
+      calleeAddress,
       amount,
-      getBalanceEntryCost(WMAS_TOKEN_ADDRESS, Context.callee().toString()),
+      getBalanceEntryCost(WMAS_TOKEN_ADDRESS, calleeAddress.toString()),
     );
   }
 
@@ -90,6 +101,16 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   // Get all tokens and their corresponding percentages from the persistent map
   const tokens: string[] = deserializeStringArray(
     Storage.get(allTokensAddressesKey),
+  );
+
+  const factoryAddress = Storage.get(FACTORY_ADDRESS_KEY);
+  const factory = new IFactory(new Address(factoryAddress));
+  const eagleSwapRouterAddress = factory.getEagleSwapRouterAddress();
+
+  assert(eagleSwapRouterAddress.length > 0, 'SWAP_ROUTER_NOT_SET');
+
+  const eagleSwapRouter = new IEagleSwapRouter(
+    new Address(eagleSwapRouterAddress),
   );
 
   for (let i = 0; i < tokens.length; i++) {
@@ -108,12 +129,39 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
       u256.fromU64(100),
     );
 
-    // TODO: the actual swap on eaglefi DEX
-    // const poolAddress = ;
+    // Get the corresponding pool address from the factory
+    const poolAddress = factory.getTokenPoolAddress(tokenAddress);
+
+    assert(poolAddress.length > 0, 'POOL_NOT_FOUND: ' + tokenAddress);
+
+    // The actual swap on eaglefi DEX
+    const swapPath = new SwapPath(
+      new Address(poolAddress),
+      new Address(WMAS_TOKEN_ADDRESS),
+      new Address(tokenAddress),
+      calleeAddress,
+      tokenAmount,
+      u256.Zero,
+      true,
+    );
+
+    const amountOut: u256 = eagleSwapRouter.swap(
+      [swapPath],
+      coinsToUse,
+      deadline,
+      coinsToUse,
+    );
+
+    assert(amountOut > u256.Zero, 'SWAP_FAILED_FOR_' + tokenAddress);
 
     // For now, just log the token address and the amount to swap
     generateEvent(
-      'Token: ' + tokenAddress + ', Amount to swap: ' + tokenAmount.toString(),
+      'Token: ' +
+        tokenAddress +
+        ', Amount to swap: ' +
+        tokenAmount.toString() +
+        ', AMOUNT_OUT: ' +
+        amountOut.toString(),
     );
   }
 
