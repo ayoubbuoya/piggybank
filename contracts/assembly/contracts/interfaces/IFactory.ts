@@ -42,4 +42,12 @@ export class IFactory {
 
     return bytesToString(result);
   }
+
+  getEagleSwapRouterAddress(): string {
+    const args = new Args();
+
+    const result = call(this._origin, 'getEagleSwapRouterAddress', args, 0);
+
+    return bytesToString(result);
+  }
 }

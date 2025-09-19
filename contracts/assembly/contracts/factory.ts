@@ -19,6 +19,8 @@ import { onlyOwner } from './lib/ownership';
 
 // Mapping from token address to its corresponding eaglefi pool address
 const tokensPoolsMap = new PersistentMap<string, string>('tpools');
+// Storage key for eaglefi swap router address
+const EAGLE_SWAP_ROUTER_ADDRESS = 'ESAPR';
 
 /**
  * This function is meant to be called only one time: when the contract is deployed.
@@ -41,8 +43,6 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
  * Create a splitter vault that will split the deposited amount between the provided tokens according to their percentage.
  * @param binaryArgs - Arguments serialized with Args
  * - tokensWithPercentage: TokenWithPercentage[]
- *  - deposit_amount: u256 - amount to deposit
- *  - isNative: bool - true if the deposit is in native token (MAS), false if it WMAS
  */
 export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
   ReentrancyGuard.nonReentrant();
@@ -97,4 +97,28 @@ export function setTokenPoolAddress(binaryArgs: StaticArray<u8>): void {
       ' by ' +
       Context.caller().toString(),
   );
+}
+
+export function setEagleSwapRouterAddress(binaryArgs: StaticArray<u8>): void {
+  // Only the owner can set the eaglefi swap router address
+  onlyOwner();
+
+  const args = new Args(binaryArgs);
+
+  const routerAddress = args.nextString().expect('router address expected');
+
+  Storage.set(EAGLE_SWAP_ROUTER_ADDRESS, routerAddress);
+
+  generateEvent(
+    'EagleFi Swap Router address set to: ' +
+      routerAddress +
+      ' by ' +
+      Context.caller().toString(),
+  );
+}
+
+export function getEagleSwapRouterAddress(): StaticArray<u8> {
+  const address = Storage.get(EAGLE_SWAP_ROUTER_ADDRESS);
+  assert(address != null, 'SWAP_ROUTER_NOT_SET');
+  return stringToBytes(address);
 }
