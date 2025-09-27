@@ -21,6 +21,7 @@ import { PersistentMap } from './lib/PersistentMap';
 import { IFactory } from './interfaces/IFactory';
 import { IEagleSwapRouter } from './interfaces/IEagleSwapRouter';
 import { SwapPath } from './structs/eaglefi/swapPath';
+import { onlyOwner } from './lib/ownership';
 
 const FACTORY_ADDRESS_KEY = 'factoryAddress';
 const tokensPercentagesMap = new PersistentMap<string, u64>('tpm');
@@ -195,5 +196,40 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   );
 
   // End Reentrancy Guard
+  ReentrancyGuard.endNonReentrant();
+}
+
+export function withdraw(binaryArgs: StaticArray<u8>): void {
+  ReentrancyGuard.nonReentrant();
+
+  onlyOwner();
+
+  const args = new Args(binaryArgs);
+
+  const tokenAddress = args.nextString().expect('token address expected');
+  const amount = args.nextU256().expect('amount expected');
+  const toAddress = args.nextString().expect('to address expected');
+
+  // Only the owner of the vault can withdraw
+
+  const token = new IMRC20(new Address(tokenAddress));
+
+  // Transfer the tokens to the specified address
+  token.transfer(
+    new Address(toAddress),
+    amount,
+    getBalanceEntryCost(tokenAddress, Context.callee().toString()),
+  );
+
+  // Emit an event indicating the withdrawal was successful
+  generateEvent(
+    createEvent('WITHDRAW', [
+      toAddress,
+      tokenAddress,
+      amount.toString(),
+      Context.caller().toString(),
+    ]),
+  );
+
   ReentrancyGuard.endNonReentrant();
 }
