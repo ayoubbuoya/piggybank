@@ -1,5 +1,12 @@
 {
     "targets": {
+        "debug": {
+            "sourceMap": true,
+            "debug": true,
+            "transform": [
+                "@massalabs/as-transformer"
+            ]
+        },
         "release": {
             "sourceMap": true,
             "optimizeLevel": 3,
@@ -7,7 +14,14 @@
             "converge": true,
             "noAssert": false,
             "exportRuntime": true,
-            "bindings": false
+            "bindings": false,
+            "transform": [
+                "@massalabs/as-transformer"
+            ]
         }
+    },
+    "options": {
+        "exportRuntime": true,
+        "bindings": "esm"
     }
 }
