@@ -16,7 +16,8 @@
         "fmt:check": "npm run prettier && npm run lint",
         "fmt": "npm run prettier:fix && npm run lint:fix",
         "events": "tsx src/events.ts",
-        "test:createSplitter": "tsx src/tests/createSplitterVault.test.ts"
+        "test:createSplitter": "tsx src/tests/createSplitterVault.test.ts",
+        "test:createAndDepositSplitter": "tsx src/tests/createAndDepositSpliter.test.ts"
     },
     "keywords": [],
     "author": "",

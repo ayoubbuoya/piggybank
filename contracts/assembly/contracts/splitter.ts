@@ -99,17 +99,24 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   const calleeAddress = Context.callee();
   const callerAddress = Context.caller();
 
-  // If isNative is true, Wrap the native token (MAS) into WMAS
-  if (isNative) {
-    wrapMasToWMAS(amount, new Address(WMAS_TOKEN_ADDRESS));
-  } else {
-    // Transfer the tokens from the sender to this contract
-    wmasToken.transferFrom(
-      Context.caller(),
-      calleeAddress,
-      amount,
-      getBalanceEntryCost(WMAS_TOKEN_ADDRESS, calleeAddress.toString()),
-    );
+  const factoryAddress = Storage.get(FACTORY_ADDRESS_KEY);
+
+  const isFromFactory = callerAddress.toString() == factoryAddress;
+
+  // Do the transfer only if the call is not from the factory (createAndDepositSplitterVault)
+  if (!isFromFactory) {
+    // If isNative is true, Wrap the native token (MAS) into WMAS
+    if (isNative) {
+      wrapMasToWMAS(amount, new Address(WMAS_TOKEN_ADDRESS));
+    } else {
+      // Transfer the tokens from the sender to this contract
+      wmasToken.transferFrom(
+        Context.caller(),
+        calleeAddress,
+        amount,
+        getBalanceEntryCost(WMAS_TOKEN_ADDRESS, calleeAddress.toString()),
+      );
+    }
   }
 
   // Distribute the  WMAS amount to the tokens according to their percentages
@@ -119,7 +126,6 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
     Storage.get(allTokensAddressesKey),
   );
 
-  const factoryAddress = Storage.get(FACTORY_ADDRESS_KEY);
   const factory = new IFactory(new Address(factoryAddress));
   const eagleSwapRouterAddress = factory.getEagleSwapRouterAddress();
 
@@ -176,16 +182,6 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
     );
 
     assert(amountOut > u256.Zero, 'SWAP_FAILED_FOR_' + tokenAddress);
-
-    // For now, just log the token address and the amount to swap
-    generateEvent(
-      'Token: ' +
-        tokenAddress +
-        ', Amount to swap: ' +
-        tokenAmount.toString() +
-        ', AMOUNT_OUT: ' +
-        amountOut.toString(),
-    );
   }
 
   // Emit an event indicating the deposit was successful
