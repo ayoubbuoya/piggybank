@@ -22,6 +22,8 @@ import { u256 } from 'as-bignum/assembly';
 import { PersistentMap } from '@massalabs/massa-as-sdk/assembly/collections';
 import { onlyOwner } from './lib/ownership';
 import { generateSplitterUserKey } from './lib/utils';
+import { IMRC20 } from './interfaces/IMRC20';
+import { getBalanceEntryCost } from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20-external';
 
 // Mapping from token address to its corresponding eaglefi pool address
 const tokensPoolsMap = new PersistentMap<string, string>('tpools');
@@ -106,6 +108,101 @@ export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
     createEvent('CREATE_SPLITTER_VAULT', [
       vaultAddress.toString(),
       caller.toString(),
+    ]),
+  );
+
+  ReentrancyGuard.endNonReentrant();
+}
+
+export function createAndDepositSplitterVault(
+  binaryArgs: StaticArray<u8>,
+): void {
+  ReentrancyGuard.nonReentrant();
+
+  const args = new Args(binaryArgs);
+
+  const tokensWithPercentage = args
+    .nextSerializableObjectArray<TokenWithPercentage>()
+    .expect('tokens with percentage expected');
+
+  const initCoins = args.nextU64().expect('Splitter initial coins expected');
+
+  const depositCoins = args.nextU64().expect('Deposit coins expected');
+
+  const depositAmount = args.nextU256().expect('Deposit amount expected');
+
+  const isNative = args.nextBool().expect('isNative expected');
+
+  const coinsToUse = args.nextU64().expect('coinsToUse expected');
+
+  const deadline = args.nextU64().expect('deadline expected');
+
+  const caller = Context.caller();
+
+  const splitterVaultByteCode: StaticArray<u8> = fileToByteArray(
+    'build/splitter.wasm',
+  );
+
+  const vaultAddress = createSC(splitterVaultByteCode);
+
+  // Call the constructor of the splitter contract
+  const splitterContract = new ISplitter(vaultAddress);
+
+  splitterContract.init(tokensWithPercentage, caller, initCoins);
+
+  // Store the unique key for the user and the vault
+  const userVaultKey = generateSplitterUserKey(
+    caller.toString(),
+    vaultAddress.toString(),
+  );
+  Storage.set(userVaultKey, '1');
+
+  // Emit an event with the address of the newly created splitter vault
+  generateEvent(
+    createEvent('CREATE_SPLITTER_VAULT', [
+      vaultAddress.toString(),
+      caller.toString(),
+    ]),
+  );
+
+  // Start the deposit process
+  const wmasToken = new IMRC20(new Address(WMAS_TOKEN_ADDRESS));
+
+  // If isNative is true, Wrap the native token (MAS) into WMAS
+  if (isNative) {
+    wrapMasToWMAS(depositAmount, new Address(WMAS_TOKEN_ADDRESS));
+    // Transfer the WMAS from this contract to the vault contract after wrapping
+    wmasToken.transfer(
+      vaultAddress,
+      depositAmount,
+      getBalanceEntryCost(WMAS_TOKEN_ADDRESS, vaultAddress.toString()),
+    );
+  } else {
+    // Transfer the tokens from the sender to this vault contract
+    wmasToken.transferFrom(
+      Context.caller(),
+      vaultAddress,
+      depositAmount,
+      getBalanceEntryCost(WMAS_TOKEN_ADDRESS, vaultAddress.toString()),
+    );
+  }
+
+  // Call the deposit function of the splitter contract
+  splitterContract.deposit(
+    depositAmount,
+    isNative,
+    coinsToUse,
+    deadline,
+    depositCoins,
+  );
+
+  // Emit an event with the address of the newly created splitter vault
+  generateEvent(
+    createEvent('CREATE_AND_DEPOSIT_SPLITTER_VAULT', [
+      vaultAddress.toString(),
+      caller.toString(),
+      depositAmount.toString(),
+      isNative.toString(),
     ]),
   );
 
