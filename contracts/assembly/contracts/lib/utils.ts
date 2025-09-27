@@ -1,4 +1,4 @@
-import { Args } from "@massalabs/as-types";
+import { Args } from '@massalabs/as-types';
 
 /**
  * Serializes an array of strings into a static array of bytes.
@@ -16,4 +16,17 @@ export function serializeStringArray(arr: string[]): StaticArray<u8> {
  */
 export function deserializeStringArray(arr: StaticArray<u8>): string[] {
   return new Args(arr).nextStringArray().unwrapOrDefault();
+}
+
+/**
+ * Generate A unique storage key for a user and a vault.
+ * @param userAddr  The address of the user.
+ * @param vaultAdd The address of the vault.
+ * @returns  A unique storage key for the user and vault.
+ */
+export function generateSplitterUserKey(
+  userAddr: string,
+  vaultAdd: string,
+): string {
+  return 'SPL:' + userAddr + ':' + vaultAdd;
 }

@@ -44,3 +44,38 @@ export async function createSplitterVault(
     throw new Error('Failed to create new splitter vault');
   }
 }
+
+export async function getUserSplitterVaults(
+  provider: Web3Provider,
+  userAddress: string,
+  factoryContract: SmartContract,
+): Promise<string[]> {
+  const keys = await provider.getStorageKeys(
+    factoryContract.address,
+    'SPL:' + userAddress + ':',
+    false,
+  );
+
+  const splitterVaults = [];
+
+  for (const key of keys) {
+    console.log('Raw key:', key);
+    const deserializedKey = bytesToStr(key);
+    console.log('Deserialized key:', deserializedKey);
+    // The key format is "SPL:<user_address>:<vault_address>"
+    // We can split the string by ':' and take the last part as the vault address
+    const parts = deserializedKey.split(':');
+    if (parts.length === 3) {
+      const vaultAddress = parts[2];
+      splitterVaults.push(vaultAddress);
+    } else {
+      console.warn(`Unexpected key format: ${deserializedKey}`);
+    }
+  }
+
+  console.log(
+    `Found ${splitterVaults.length} splitter vault(s) for user ${userAddress}`,
+  );
+
+  return splitterVaults;
+}

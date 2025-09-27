@@ -1,12 +1,13 @@
 import {
   Address,
   Context,
+  createEvent,
   createSC,
   fileToByteArray,
   generateEvent,
   Storage,
 } from '@massalabs/massa-as-sdk';
-import { Args, stringToBytes } from '@massalabs/as-types';
+import { Args, boolToByte, stringToBytes } from '@massalabs/as-types';
 import { _setOwner } from './lib/ownership-internal';
 import { ReentrancyGuard } from './lib/ReentrancyGuard';
 import { TokenWithPercentage } from './structs/token';
@@ -20,6 +21,7 @@ import { ISplitter } from './interfaces/ISplitter';
 import { u256 } from 'as-bignum/assembly';
 import { PersistentMap } from '@massalabs/massa-as-sdk/assembly/collections';
 import { onlyOwner } from './lib/ownership';
+import { generateSplitterUserKey } from './lib/utils';
 
 // Mapping from token address to its corresponding eaglefi pool address
 const tokensPoolsMap = new PersistentMap<string, string>('tpools');
@@ -79,6 +81,8 @@ export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
 
   const initCoins = args.nextU64().expect('Splitter initial coins expected');
 
+  const caller = Context.caller();
+
   const splitterVaultByteCode: StaticArray<u8> = fileToByteArray(
     'build/splitter.wasm',
   );
@@ -88,7 +92,22 @@ export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
   // Call the constructor of the splitter contract
   const splitterContract = new ISplitter(vaultAddress);
 
-  splitterContract.init(tokensWithPercentage, Context.caller(), initCoins);
+  splitterContract.init(tokensWithPercentage, caller, initCoins);
+
+  // Store the unique key for the user and the vault
+  const userVaultKey = generateSplitterUserKey(
+    caller.toString(),
+    vaultAddress.toString(),
+  );
+  Storage.set(userVaultKey, '1');
+
+  // Emit an event with the address of the newly created splitter vault
+  generateEvent(
+    createEvent('CREATE_SPLITTER_VAULT', [
+      vaultAddress.toString(),
+      caller.toString(),
+    ]),
+  );
 
   ReentrancyGuard.endNonReentrant();
 }
