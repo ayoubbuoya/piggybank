@@ -77,6 +77,8 @@ export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
     .nextSerializableObjectArray<TokenWithPercentage>()
     .expect('tokens with percentage expected');
 
+  const initCoins = args.nextU64().expect('Splitter initial coins expected');
+
   const splitterVaultByteCode: StaticArray<u8> = fileToByteArray(
     'build/splitter.wasm',
   );
@@ -86,7 +88,7 @@ export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
   // Call the constructor of the splitter contract
   const splitterContract = new ISplitter(vaultAddress);
 
-  splitterContract.init(tokensWithPercentage, Context.caller());
+  splitterContract.init(tokensWithPercentage, Context.caller(), initCoins);
 
   ReentrancyGuard.endNonReentrant();
 }
