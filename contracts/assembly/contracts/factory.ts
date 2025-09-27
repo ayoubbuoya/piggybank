@@ -11,7 +11,11 @@ import { _setOwner } from './lib/ownership-internal';
 import { ReentrancyGuard } from './lib/ReentrancyGuard';
 import { TokenWithPercentage } from './structs/token';
 import { wrapMasToWMAS } from './lib/wrapping';
-import { WMAS_TOKEN_ADDRESS } from './storage';
+import {
+  USDC_TOKEN_ADDRESS,
+  WETH_TOKEN_ADDRESS,
+  WMAS_TOKEN_ADDRESS,
+} from './storage';
 import { ISplitter } from './interfaces/ISplitter';
 import { u256 } from 'as-bignum/assembly';
 import { PersistentMap } from '@massalabs/massa-as-sdk/assembly/collections';
@@ -40,6 +44,17 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
 
   // Set the eaglefi swap router address
   Storage.set(EAGLE_SWAP_ROUTER_ADDRESS, swapRouterAddress);
+
+  // Set default tokens pools of eaglefi
+  tokensPoolsMap.set(
+    USDC_TOKEN_ADDRESS,
+    'AS1p6ULD2dWxJ7G1U3D3dX95jHwgfXieRnLFRNRr4Hfq7XvA1qZf', // USDC/WMAS pool
+  );
+
+  tokensPoolsMap.set(
+    WETH_TOKEN_ADDRESS,
+    'AS184uE7Eq11Sg3KeQBD7jV9DkC75T3U5P6UEU1WEEZ7FHiesjsh', // WETH/WMAS pool
+  );
 
   // Set the contract owner
   _setOwner(Context.caller().toString());
