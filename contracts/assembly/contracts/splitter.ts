@@ -2,6 +2,7 @@
 import {
   Address,
   Context,
+  createEvent,
   generateEvent,
   Storage,
 } from '@massalabs/massa-as-sdk';
@@ -61,8 +62,23 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   // Set the contract owner to the vault creator address
   _setOwner(vaultCreatorAddress);
 
+  const caller = Context.caller();
+
   // Store the factory address
-  Storage.set(FACTORY_ADDRESS_KEY, Context.caller().toString());
+  Storage.set(FACTORY_ADDRESS_KEY, caller.toString());
+
+  // INcrease Max allownace of WMAS for the eaglefi router
+  const wmasToken = new IMRC20(new Address(WMAS_TOKEN_ADDRESS));
+
+  const factoryContract = new IFactory(caller);
+
+  const eaglefiRouterAddress = factoryContract.getEagleSwapRouterAddress();
+
+  wmasToken.increaseAllowance(
+    new Address(eaglefiRouterAddress),
+    u256.fromU64(u64.MAX_VALUE),
+    getBalanceEntryCost(WMAS_TOKEN_ADDRESS, Context.callee().toString()),
+  );
 
   // Initialize the reentrancy guard
   ReentrancyGuard.__ReentrancyGuard_init();
@@ -116,6 +132,11 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   for (let i = 0; i < tokens.length; i++) {
     const tokenAddress = tokens[i];
 
+    if (tokenAddress == WMAS_TOKEN_ADDRESS) {
+      // If the token is WMAS, just Keep their percentage in the vault, do nothing
+      continue;
+    }
+
     assert(
       tokensPercentagesMap.contains(tokenAddress),
       'TOKEN_PERC_NOT_FOUND: ' + tokenAddress,
@@ -141,14 +162,16 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
       new Address(tokenAddress),
       calleeAddress,
       tokenAmount,
-      u256.Zero,
+      u256.One, // amountOutMin set to 1 for simplicity, should be handled properly in a real scenario
       true,
     );
+
+    const customDeadline = u64.MAX_VALUE;
 
     const amountOut: u256 = eagleSwapRouter.swap(
       [swapPath],
       coinsToUse,
-      deadline,
+      customDeadline,
       coinsToUse,
     );
 
@@ -164,6 +187,16 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
         amountOut.toString(),
     );
   }
+
+  // Emit an event indicating the deposit was successful
+  generateEvent(
+    createEvent('DEOSIT', [
+      callerAddress.toString(),
+      amount.toString(),
+      isNative.toString(),
+      deadline.toString(),
+    ]),
+  );
 
   // End Reentrancy Guard
   ReentrancyGuard.endNonReentrant();

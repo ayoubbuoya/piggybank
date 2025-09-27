@@ -5,11 +5,15 @@ import {
   Mas,
   SmartContract,
   JsonRpcProvider,
+  MRC20,
+  formatUnits,
+  BUILDNET_TOKENS,
 } from '@massalabs/massa-web3';
 import * as dotenv from 'dotenv';
 import { TokenWithPercentage } from '../calls/structs/TokenWithPercentage';
 import { USDC_TOKEN_ADDRESS, WETH_TOKEN_ADDRESS } from '../calls/const';
 import { createSplitterVault, getUserSplitterVaults } from '../calls/factory';
+import { depositToSplitterVault } from '../calls/splitter';
 
 dotenv.config();
 
@@ -18,11 +22,14 @@ const provider = JsonRpcProvider.buildnet(account);
 
 const factoryContract = new SmartContract(
   provider,
-  'AS1Rob48rVywGPBkL3yzvwS24nrCvFsCE58PRT9SyW6hT6jQV8W2',
+  'AS17JWnv1cvNxM1ZFvoPbJuzcKy1FSH4BeeRyRnvHyDpHoAfxeVP',
 );
 
 const usdcTokenPercentage = new TokenWithPercentage(USDC_TOKEN_ADDRESS, 50n);
 const wethTokenPercentage = new TokenWithPercentage(WETH_TOKEN_ADDRESS, 50n);
+const usdcTokenContract = new MRC20(provider, USDC_TOKEN_ADDRESS);
+const wethTokenContract = new MRC20(provider, WETH_TOKEN_ADDRESS);
+const wmasTokenContract = new MRC20(provider, BUILDNET_TOKENS.WMAS);
 
 const tokensWithPercentage = [usdcTokenPercentage, wethTokenPercentage];
 
@@ -45,3 +52,26 @@ if (splitterVaults.length === 0) {
   throw new Error('No splitter vaults found for the user');
 }
 console.log('Test passed successfully');
+
+const firstSplitterVault = new SmartContract(provider, splitterVaults[0]);
+
+// Deposit
+await depositToSplitterVault(firstSplitterVault, '10', true);
+
+// Get the balance of the splitter vault
+const balance = await usdcTokenContract.balanceOf(
+  firstSplitterVault.address.toString(),
+);
+console.log(`Splitter vault USDC balance: ${formatUnits(balance, 6)} USDC`);
+
+const wethBalance = await wethTokenContract.balanceOf(
+  firstSplitterVault.address.toString(),
+);
+console.log(
+  `Splitter vault WETH balance: ${formatUnits(wethBalance, 18)} WETH`,
+);
+
+const wmasBalance = await wmasTokenContract.balanceOf(
+  firstSplitterVault.address.toString(),
+);
+console.log(`Splitter vault WMAS balance: ${formatUnits(wmasBalance, 9)} WMAS`);
