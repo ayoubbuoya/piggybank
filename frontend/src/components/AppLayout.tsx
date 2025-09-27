@@ -42,7 +42,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <NavLink to="/vault/create">Create Vault</NavLink>
             <NavLink to="/analytics">Analytics</NavLink>
             <NavLink to="/about">About</NavLink>
-            <NavLink to="/settings">Settings</NavLink>
+            {/* <NavLink to="/settings">Settings</NavLink> */}
           </nav>
           <div className="ml-auto">
             <WalletConnect />

@@ -73,3 +73,80 @@
   transform: translateY(2px);
   box-shadow: 6px 6px 0 0 rgba(14, 14, 16, 0.25);
 }
+
+
+
+/* :root {
+  --toastify-color-info: #fffba0 !important;
+  --toastify-color-success: #166534 !important;
+  --toastify-color-warning: #ffce9a !important;
+  --toastify-color-error: #b91c1c !important;
+  --toastify-toast-width: fit-content !important;
+} */
+/* .Toastify__toast-container {
+  max-width: 424px !important ;
+} */
+/* .Toastify__toast-icon {
+  margin-right: 14px !important;
+} */
+
+/* .Toastify__toast-theme--colored.Toastify__toast--error {
+  border-radius: 12px !important;
+  border: 1.5px solid #b91c1c !important;
+  background: #fef2f2 !important;
+  box-shadow: -8px 8px 16px 0px rgba(133, 133, 133, 0.15) !important;
+  font-family: var(--Font-Family-Body, "Neue Haas Grotesk Display Pro");
+  font-size: 20px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: #000000 !important;
+  padding: 20px !important;
+} */
+/* .Toastify__toast-theme--colored.Toastify__toast--info {
+  border-radius: 12px !important;
+  border: 1.5px solid #bdbdbd !important;
+  background: #fffef1 !important;
+  box-shadow: -8px 8px 16px 0px rgba(133, 133, 133, 0.15) !important;
+  font-family: var(--Font-Family-Body, "Neue Haas Grotesk Display Pro");
+  font-size: 20px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: #000000 !important;
+  padding: 20px !important;
+} */
+/* .Toastify__toast-theme--colored.Toastify__toast--success {
+  border-radius: 12px !important;
+  border: 1.5px solid #166534 !important;
+  background: #dcfce7 !important;
+  box-shadow: -8px 8px 16px 0px rgba(133, 133, 133, 0.15) !important;
+  font-family: var(--Font-Family-Body, "Neue Haas Grotesk Display Pro");
+  font-size: 20px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: #000000 !important;
+  padding: 20px !important;
+} */
+/* .Toastify__toast-theme--colored.Toastify__toast--warning {
+  border-radius: 12px !important;
+  border: 1.5px solid #ffce9a !important;
+  background: #fff4e5 !important;
+  box-shadow: -8px 8px 16px 0px rgba(133, 133, 133, 0.15) !important;
+  font-family: var(--Font-Family-Body, "Neue Haas Grotesk Display Pro");
+  font-size: 20px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: #000000 !important;
+  padding: 20px !important;
+} */
+
+/* .Toastify__close-button {
+  color: #000000 !important;
+} */
+
+/* .Toastify__toast-body {
+  align-items: flex-start !important;
+} */
