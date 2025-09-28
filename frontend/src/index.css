@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+/* Neo‑Brutalist helpers */
+.bento-bg {
+  box-shadow: 0 0 0 3px #0e0e10 inset;
+}
+.brut-card {
+  @apply border-3 border-ink-950 rounded-3xl shadow-brut;
+}
+.brut-btn {
+  @apply border-3 border-ink-950 px-5 py-3 rounded-2xl font-bold transition-transform active:translate-y-1;
+}
+.brut-link {
+  @apply underline decoration-4 decoration-ink-950;
+}
+
+/* react ui kit connect wallet modal */
+#options {
+  border: 3px solid #0e0e10;
+  border-radius: 2rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  box-shadow: 8px 8px 0 0 rgba(14, 14, 16, 0.25);
+}
+
+#options > ul > li {
+  border-bottom: 3px solid #0e0e10;
+  border-radius: 0px;
+  transition: background-color 0.2s ease;
+}
+
+#options > ul > li:first-child {
+  border-top-left-radius: 2rem;
+  border-top-right-radius: 2rem;
+}
+
+#options > ul > li:last-child {
+  border-bottom: none;
+  border-bottom-left-radius: 2rem;
+  border-bottom-right-radius: 2rem;
+}
+
+#options > ul > li:hover {
+  background-color: #fd5a46 !important;
+}
+
+#options > ul > li > div {
+  border-radius: 0px;
+  padding: 1rem;
+  font-weight: 600;
+  color: #0e0e10;
+}
+
+#dropdownUiKitButton {
+  border: 3px solid #0e0e10;
+  border-radius: 2rem;
+  box-shadow: 8px 8px 0 0 rgba(14, 14, 16, 0.25);
+  background-color: white;
+  color: #0e0e10;
+  font-weight: 600;
+  padding: 1rem 1.5rem;
+  transition: all 0.2s ease;
+}
+
+#dropdownUiKitButton:hover {
+  background-color: #fd5a46;
+  transform: translateY(2px);
+  box-shadow: 6px 6px 0 0 rgba(14, 14, 16, 0.25);
+}
+
+
+
+/* :root {
+  --toastify-color-info: #fffba0 !important;
+  --toastify-color-success: #166534 !important;
+  --toastify-color-warning: #ffce9a !important;
+  --toastify-color-error: #b91c1c !important;
+  --toastify-toast-width: fit-content !important;
+} */
+/* .Toastify__toast-container {
+  max-width: 424px !important ;
+} */
+/* .Toastify__toast-icon {
+  margin-right: 14px !important;
+} */
+
+/* .Toastify__toast-theme--colored.Toastify__toast--error {
+  border-radius: 12px !important;
+  border: 1.5px solid #b91c1c !important;
+  background: #fef2f2 !important;
+  box-shadow: -8px 8px 16px 0px rgba(133, 133, 133, 0.15) !important;
+  font-family: var(--Font-Family-Body, "Neue Haas Grotesk Display Pro");
+  font-size: 20px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: #000000 !important;
+  padding: 20px !important;
+} */
+/* .Toastify__toast-theme--colored.Toastify__toast--info {
+  border-radius: 12px !important;
+  border: 1.5px solid #bdbdbd !important;
+  background: #fffef1 !important;
+  box-shadow: -8px 8px 16px 0px rgba(133, 133, 133, 0.15) !important;
+  font-family: var(--Font-Family-Body, "Neue Haas Grotesk Display Pro");
+  font-size: 20px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: #000000 !important;
+  padding: 20px !important;
+} */
+/* .Toastify__toast-theme--colored.Toastify__toast--success {
+  border-radius: 12px !important;
+  border: 1.5px solid #166534 !important;
+  background: #dcfce7 !important;
+  box-shadow: -8px 8px 16px 0px rgba(133, 133, 133, 0.15) !important;
+  font-family: var(--Font-Family-Body, "Neue Haas Grotesk Display Pro");
+  font-size: 20px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: #000000 !important;
+  padding: 20px !important;
+} */
+/* .Toastify__toast-theme--colored.Toastify__toast--warning {
+  border-radius: 12px !important;
+  border: 1.5px solid #ffce9a !important;
+  background: #fff4e5 !important;
+  box-shadow: -8px 8px 16px 0px rgba(133, 133, 133, 0.15) !important;
+  font-family: var(--Font-Family-Body, "Neue Haas Grotesk Display Pro");
+  font-size: 20px !important;
+  font-style: normal !important;
+  font-weight: 700 !important;
+  line-height: normal !important;
+  color: #000000 !important;
+  padding: 20px !important;
+} */
+
+/* .Toastify__close-button {
+  color: #000000 !important;
+} */
+
+/* .Toastify__toast-body {
+  align-items: flex-start !important;
+} */

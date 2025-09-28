@@ -1,0 +1,33 @@
+{
+  "name": "massa-piggybank-spa",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@massalabs/massa-web3": "^5.2.1-dev.20250627123813",
+    "@massalabs/react-ui-kit": "^1.1.0",
+    "@massalabs/wallet-provider": "^3.2.0",
+    "clsx": "^2.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.27.0",
+    "react-toastify": "^11.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.2",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.45",
+    "tailwindcss": "^3.4.10",
+    "terser": "^5.44.0",
+    "typescript": "^5.9.2",
+    "vite": "^5.4.3"
+  }
+}
