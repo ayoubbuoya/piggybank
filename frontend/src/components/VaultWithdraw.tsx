@@ -33,7 +33,15 @@ export default function VaultWithdraw({
   const maxBalance = selectedToken ? tokenBalances[selectedToken] || "0" : "0";
 
   const handleMaxClick = () => {
-    setAmount(maxBalance);
+    // Reduce max by a tiny amount to account for decimal precision issues
+    const maxValue = parseFloat(maxBalance);
+    if (maxValue > 0) {
+      // Reduce by 0.1% to avoid rounding issues
+      const safeMax = (maxValue * 0.999).toFixed(6).replace(/\.?0+$/, '');
+      setAmount(safeMax);
+    } else {
+      setAmount("0");
+    }
   };
 
   const handleWithdraw = async () => {

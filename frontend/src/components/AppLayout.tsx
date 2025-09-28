@@ -56,7 +56,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             Built for Massa DeWeb · Autonomous by design
           </p>
           <p className="text-sm mt-1">
-            Demo UI — wire your contracts to go fully on‑chain.
+            This app is under developement and working on buildnet network for now.
           </p>
         </div>
       </footer>

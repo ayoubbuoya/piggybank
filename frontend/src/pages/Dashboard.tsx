@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useAccountStore } from "@massalabs/react-ui-kit";
-import { getUserSplitterVaults } from "../lib/massa";
+import { getUserSplitterVaults, getVaultTokenSelections } from "../lib/massa";
 import { AVAILABLE_TOKENS } from "../lib/types";
 
 interface UserVault {
@@ -43,16 +43,38 @@ export default function Dashboard() {
 
       console.log('Vault addresses received:', vaultAddresses);
 
-      // Transform vault addresses into vault objects
-      const userVaults: UserVault[] = vaultAddresses.map((address, index) => ({
-        address,
-        name: `Splitter Vault #${index + 1}`,
-        status: "Active",
-        tokenCount: AVAILABLE_TOKENS.length,
-        balance: "0.00", // This could be fetched from vault contract later
-      }));
+      // Transform vault addresses into vault objects with real token count
+      const userVaults: UserVault[] = [];
+      
+      for (let i = 0; i < vaultAddresses.length; i++) {
+        const address = vaultAddresses[i];
+        
+        try {
+          // Get real token count for each vault
+          const tokens = await getVaultTokenSelections(connectedAccount, address);
+          const tokenCount = tokens.length > 0 ? tokens.length : AVAILABLE_TOKENS.length; // Fallback to 3 if no tokens found
+          
+          userVaults.push({
+            address,
+            name: `Splitter Vault #${i + 1}`,
+            status: "Active",
+            tokenCount,
+            balance: "0.00",
+          });
+        } catch (error) {
+          console.error(`Error fetching token count for vault ${address}:`, error);
+          // Fallback vault data
+          userVaults.push({
+            address,
+            name: `Splitter Vault #${i + 1}`,
+            status: "Active",
+            tokenCount: AVAILABLE_TOKENS.length, // Fallback to 3
+            balance: "0.00",
+          });
+        }
+      }
 
-      console.log('Setting vaults:', userVaults);
+      console.log('Setting vaults with real token counts:', userVaults);
       setVaults(userVaults);
 
       if (toastId) {
