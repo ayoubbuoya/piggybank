@@ -20,16 +20,12 @@ const useNetworkCheck = () => {
         const networkName = networkInfo?.name ?? null;
         setCurrentNetwork(networkName);
 
-        console.log("Current network:", networkName);
-        console.log("Target network:", targetNetwork);
-
         if (networkName && networkName.toUpperCase() !== targetNetwork.toUpperCase()) {
           setShowNetworkWarning(true);
         } else {
           setShowNetworkWarning(false);
         }
       } catch (error) {
-        console.error("Error fetching network info:", error);
         setCurrentNetwork(null);
         setShowNetworkWarning(false);
       }
