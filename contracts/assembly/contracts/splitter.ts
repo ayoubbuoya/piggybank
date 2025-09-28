@@ -6,7 +6,7 @@ import {
   generateEvent,
   Storage,
 } from '@massalabs/massa-as-sdk';
-import { Args, SafeMath, stringToBytes } from '@massalabs/as-types';
+import { Args, SafeMath, stringToBytes, u64ToBytes } from '@massalabs/as-types';
 import { TokenWithPercentage } from './structs/token';
 import { _setOwner } from './lib/ownership-internal';
 import { ReentrancyGuard } from './lib/ReentrancyGuard';
@@ -27,6 +27,7 @@ const FACTORY_ADDRESS_KEY = 'factoryAddress';
 const tokensPercentagesMap = new PersistentMap<string, u64>('tpm');
 const allTokensAddressesKey: StaticArray<u8> =
   stringToBytes('allTokensAddresses');
+const createdAtKey: StaticArray<u8> = stringToBytes('createdAt');
 
 /**
  * This function is meant to be called only one time: when the contract is deployed.
@@ -67,6 +68,9 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
 
   // Store the factory address
   Storage.set(FACTORY_ADDRESS_KEY, caller.toString());
+
+  // Store the creation timestamp
+  Storage.set(createdAtKey, u64ToBytes(Context.timestamp()));
 
   // INcrease Max allownace of WMAS for the eaglefi router
   const wmasToken = new IMRC20(new Address(WMAS_TOKEN_ADDRESS));
