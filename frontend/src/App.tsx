@@ -8,11 +8,15 @@ import Analytics from "./pages/Analytics.tsx";
 import About from "./pages/About.tsx";
 import Settings from "./pages/Settings.tsx";
 import AppLayout from "./components/AppLayout.tsx";
+import NetworkWarningModal from "./components/NetworkWarningModal.tsx";
 import useAccountSync from "./hooks/useAccountSync.tsx";
+import useNetworkCheck from "./hooks/useNetworkCheck.tsx";
 import "react-toastify/dist/ReactToastify.css";
 
 export default function App() {
   useAccountSync();
+  const { showNetworkWarning, closeNetworkWarning } = useNetworkCheck();
+
   return (
     <>
       <AppLayout>
@@ -40,6 +44,11 @@ export default function App() {
         theme="colored"
         className="mt-16"
         aria-label="Toast notifications"
+      />
+
+      <NetworkWarningModal
+        isOpen={showNetworkWarning}
+        onClose={closeNetworkWarning}
       />
     </>
   );
