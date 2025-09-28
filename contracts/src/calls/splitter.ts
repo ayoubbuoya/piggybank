@@ -98,3 +98,28 @@ export async function getSplitterTokensPercentages(
 
   return tokensWithPercentage;
 }
+
+export async function getSplitterCreationTimestamp(
+  provider: Web3Provider,
+  splitterVaultContract: SmartContract,
+): Promise<number> {
+  console.log('Fetching splitter vault creation timestamp...');
+
+  const value = await provider.readStorage(
+    splitterVaultContract.address,
+    ['createdAt'],
+    false,
+  );
+
+  if (!value || value.length === 0) {
+    throw new Error('No value found for key: createdAt');
+  }
+
+  const creationTimestamp = new Args(value[0]!).nextU64();
+
+  if (!creationTimestamp) {
+    throw new Error('Failed to parse creation timestamp');
+  }
+
+  return Number(creationTimestamp);
+}

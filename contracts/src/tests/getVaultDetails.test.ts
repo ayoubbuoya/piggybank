@@ -19,6 +19,7 @@ import {
 } from '../calls/factory';
 import {
   depositToSplitterVault,
+  getSplitterCreationTimestamp,
   getSplitterTokensPercentages,
 } from '../calls/splitter';
 
@@ -29,7 +30,7 @@ const provider = JsonRpcProvider.buildnet(account);
 
 const factoryContract = new SmartContract(
   provider,
-  'AS1uck9U7SFpAHZAyYcjcgGq7BoM7UCXsiW6V3DrunmPYVpa6nVh', // Factory contract address
+  'AS12L2f9urCwMfymfg1c2sCycMVxMSGzbiENiGsxWsw9NZYAdnkWp', // Factory contract address
 );
 
 const splitterVaults = await getUserSplitterVaults(
@@ -52,3 +53,15 @@ const tokensWithPercentages = await getSplitterTokensPercentages(
 );
 
 console.log('Tokens with percentages:', tokensWithPercentages);
+
+// Get the vault created At timestamp
+const createdAt = await getSplitterCreationTimestamp(
+  provider,
+  new SmartContract(provider, firstSplitterVault),
+);
+
+console.log('Splitter vault created at (timestamp):', createdAt);
+console.log(
+  'Splitter vault created at (date):',
+  new Date(createdAt).toLocaleString(),
+);
