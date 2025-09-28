@@ -1,6 +1,6 @@
-import { SmartContract, Args, parseMas, OperationStatus, bytesToStr, MRC20 } from '@massalabs/massa-web3';
+import { SmartContract, Args, parseMas, OperationStatus, bytesToStr, MRC20, Web3Provider } from '@massalabs/massa-web3';
 import { toast } from 'react-toastify';
-import { TokenWithPercentage } from './types';
+import { TokenWithPercentage, TokenSelection, AVAILABLE_TOKENS } from './types';
 
 // Get contract instance
 function getFactoryContract(connectedAccount: any): SmartContract {
@@ -67,7 +67,7 @@ export async function createSplitterVault(
       // Try to wait for final execution to ensure storage is available
       try {
         console.log('Waiting for final execution...');
-        const finalStatus = await operation.waitFinalExecution();
+        const finalStatus = await operation.waitSpeculativeExecution();
         console.log('Final execution status:', finalStatus);
       } catch (error) {
         console.log('Final execution wait failed, but continuing:', error);
@@ -346,7 +346,7 @@ export async function getVaultTokenBalances(
         
         // Set specific decimals for each token
         if (tokenAddress === 'AS12FW5Rs5YN2zdpEnqwj4iHUUPt9R4Eqjq2qtpJFNKW3mn33RuLU') {
-          decimals = 9; // WMAS uses 9 decimals
+          decimals = 18; // WMAS uses 18 decimals
         } else if (tokenAddress === 'AS12N76WPYB3QNYKGhV2jZuQs1djdhNJLQgnm7m52pHWecvvj1fCQ') {
           decimals = 6; // USDC uses 6 decimals
         } else if (tokenAddress === 'AS12rcqHGQ3bPPhnjBZsYiANv9TZxYp96M7r49iTMUrX8XCJQ8Wrk') {
@@ -374,4 +374,204 @@ export async function getVaultTokenBalances(
   }
 
   return balances;
+}
+
+// Withdraw tokens from a vault (only owner can withdraw)
+export async function withdrawFromVault(
+  connectedAccount: any,
+  vaultAddress: string,
+  tokenAddress: string,
+  amount: string,
+  toAddress: string
+): Promise<{ success: boolean; error?: string }> {
+  const toastId = toast.loading('Withdrawing tokens...');
+  
+  try {
+    const vaultContract = new SmartContract(connectedAccount, vaultAddress);
+    
+    // Use correct decimal places for each token (same as balance reading)
+    let decimals = 18; // Default to 18 decimals
+    
+    // Set specific decimals for each token
+    if (tokenAddress === 'AS12FW5Rs5YN2zdpEnqwj4iHUUPt9R4Eqjq2qtpJFNKW3mn33RuLU') {
+      decimals = 18; // WMAS uses 18 decimals
+    } else if (tokenAddress === 'AS12N76WPYB3QNYKGhV2jZuQs1djdhNJLQgnm7m52pHWecvvj1fCQ') {
+      decimals = 6; // USDC uses 6 decimals
+    } else if (tokenAddress === 'AS12rcqHGQ3bPPhnjBZsYiANv9TZxYp96M7r49iTMUrX8XCJQ8Wrk') {
+      decimals = 18; // WETH uses 18 decimals
+    }
+
+    // Convert amount to token's smallest unit using correct decimals
+    const amountInSmallestUnit = BigInt(Math.floor(parseFloat(amount) * (10 ** decimals)));
+    
+    console.log(`Converting ${amount} with ${decimals} decimals = ${amountInSmallestUnit.toString()}`);
+
+    const args = new Args()
+      .addString(tokenAddress) // token address
+      .addU256(amountInSmallestUnit) // amount in token's smallest unit
+      .addString(toAddress) // to address
+      .serialize();
+
+    console.log(`Withdrawing ${amount} tokens from vault ${vaultAddress}`);
+    console.log(`Token: ${tokenAddress}, To: ${toAddress}`);
+
+    toast.update(toastId, {
+      render: 'Waiting for withdrawal confirmation...',
+      isLoading: true
+    });
+
+    const operation = await vaultContract.call('withdraw', args, {
+      coins: parseMas('2'), // Gas for withdrawal
+    });
+
+    const status = await operation.waitSpeculativeExecution();
+
+    if (status === OperationStatus.SpeculativeSuccess) {
+      toast.update(toastId, {
+        render: '💸 Withdrawal successful! Tokens transferred to your address.',
+        type: 'success',
+        isLoading: false,
+        autoClose: 5000,
+      });
+      
+      return { success: true };
+    } else {
+      const events = await operation.getSpeculativeEvents();
+      console.log('Withdrawal failed, events:', events);
+      
+      toast.update(toastId, {
+        render: 'Withdrawal transaction failed',
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000,
+      });
+      
+      return { success: false, error: 'Withdrawal transaction failed' };
+    }
+  } catch (error) {
+    console.error('Error withdrawing from vault:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    toast.update(toastId, {
+      render: `Withdrawal failed: ${errorMessage}`,
+      type: 'error',
+      isLoading: false,
+      autoClose: 5000,
+    });
+    
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Get splitter vault creation timestamp - Using your exact working code pattern
+export async function getSplitterCreationTimestamp(
+  provider: Web3Provider,
+  splitterVaultContract: SmartContract,
+): Promise<number> {
+  console.log('Fetching splitter vault creation timestamp...');
+
+  const value = await provider.readStorage(
+    splitterVaultContract.address,
+    ['createdAt'],
+    false,
+  );
+
+  if (!value || value.length === 0) {
+    throw new Error('No value found for key: createdAt');
+  }
+
+  const creationTimestamp = new Args(value[0]!).nextU64();
+
+  if (!creationTimestamp) {
+    throw new Error('Failed to parse creation timestamp');
+  }
+
+  return Number(creationTimestamp);
+}
+
+// Get splitter vault tokens and percentages - Using your exact working code pattern
+export async function getSplitterTokensPercentages(
+  provider: Web3Provider,
+  splitterVaultContract: SmartContract,
+): Promise<TokenWithPercentage[]> {
+  console.log('Fetching splitter vault tokens and percentages...');
+
+  const keys = await provider.getStorageKeys(
+    splitterVaultContract.address,
+    'tpm::',
+    false,
+  );
+
+  const tokensWithPercentage: TokenWithPercentage[] = [];
+
+  for (const key of keys) {
+    const deserializedKey = bytesToStr(key);
+    console.log('Deserialized key:', deserializedKey);
+    const tokenAddress = deserializedKey.split('::')[1];
+    // Fetch Key Value from storage
+    const value = await provider.readStorage(
+      splitterVaultContract.address,
+      [deserializedKey],
+      false,
+    );
+
+    console.log(`Value for key ${deserializedKey}:`, value);
+
+    if (!value || value.length === 0) {
+      console.warn(`No value found for key: ${deserializedKey}`);
+      continue;
+    }
+
+    const tokenPercentage = new Args(value[0]!).nextU64();
+
+    console.log(`Token: ${tokenAddress}, Percentage: ${tokenPercentage}`);
+
+    tokensWithPercentage.push(
+      new TokenWithPercentage(tokenAddress, tokenPercentage!),
+    );
+  }
+
+  return tokensWithPercentage;
+}
+
+// Convert TokenWithPercentage to TokenSelection for UI
+export async function getVaultTokenSelections(
+  connectedAccount: any,
+  vaultAddress: string
+): Promise<TokenSelection[]> {
+  try {
+    
+    const splitterVaultContract = new SmartContract(connectedAccount, vaultAddress);
+    
+    const tokensWithPercentage = await getSplitterTokensPercentages(connectedAccount, splitterVaultContract);
+    
+    const tokenSelections: TokenSelection[] = tokensWithPercentage.map(tokenWithPerc => {
+      // Find the token info from AVAILABLE_TOKENS
+      const tokenInfo = AVAILABLE_TOKENS.find(token => token.address === tokenWithPerc.address);
+      
+      if (tokenInfo) {
+        return {
+          ...tokenInfo,
+          percentage: Number(tokenWithPerc.percentage),
+          isSelected: true
+        };
+      } else {
+        // If token not in our predefined list, create basic info
+        return {
+          address: tokenWithPerc.address,
+          symbol: 'UNKNOWN',
+          name: 'Unknown Token',
+          logo: '',
+          percentage: Number(tokenWithPerc.percentage),
+          isSelected: true
+        };
+      }
+    });
+
+    console.log('Converted to token selections:', tokenSelections);
+    return tokenSelections;
+  } catch (error) {
+    console.error('Error getting vault token selections:', error);
+    return [];
+  }
 }

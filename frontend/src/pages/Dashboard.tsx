@@ -187,10 +187,10 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              <div className="border-t pt-3">
+              {/* <div className="border-t pt-3">
                 <p className="text-sm text-gray-500 mb-1">Total Balance</p>
                 <p className="text-xl font-black">{vault.balance} MAS</p>
-              </div>
+              </div> */}
 
               <div className="mt-4 flex gap-2">
                 <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">

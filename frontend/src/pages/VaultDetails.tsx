@@ -3,8 +3,9 @@ import { useAccountStore } from "@massalabs/react-ui-kit";
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import VaultDeposit from "../components/VaultDeposit";
+import VaultWithdraw from "../components/VaultWithdraw";
 import { AVAILABLE_TOKENS, TokenSelection } from "../lib/types";
-import { getVaultTokenBalances } from "../lib/massa";
+import { getVaultTokenBalances, getVaultTokenSelections } from "../lib/massa";
 
 interface VaultData {
   address: string;
@@ -27,29 +28,73 @@ export default function VaultDetails() {
   const [loading, setLoading] = useState(true);
   const [balancesLoading, setBalancesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
   useEffect(() => {
-    // For now, create a mock vault based on the id (address)
-    // In a real implementation, this would fetch vault data from the blockchain
-    if (id) {
-      // Mock vault data - in real implementation, this would fetch from smart contract
-      const mockVault: VaultData = {
-        address: id,
-        name: "Splitter Vault",
-        tokens: AVAILABLE_TOKENS.map((token, index) => ({
-          ...token,
-          percentage: index === 0 ? 50 : index === 1 ? 30 : 20,
-          isSelected: true
-        })),
-        balance: "0.00",
-        status: "Active",
-        createdAt: new Date().toLocaleDateString()
-      };
-      
-      setVault(mockVault);
-      setLoading(false);
-    }
-  }, [id]);
+    const fetchVaultData = async () => {
+      if (!id || !connectedAccount) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('Fetching real vault data for:', id);
+        
+        // Fetch real token allocation and creation timestamp
+        let tokens: TokenSelection[] = [];
+        let creationTimestamp: number | null = null;
+        
+        try {
+          tokens = await getVaultTokenSelections(connectedAccount, id);
+          console.log('Real tokens:', tokens);
+        } catch (error) {
+          console.error('Error fetching tokens:', error);
+          tokens = [];
+        }
+        
+        // For now, skip timestamp fetching due to API complexities
+        creationTimestamp = null;
+        
+        if (!tokens || tokens.length === 0) {
+          // Fallback to mock data if no tokens found
+          console.log('No tokens found in vault storage, using fallback');
+          setVault({
+            address: id,
+            name: "Splitter Vault",
+            tokens: AVAILABLE_TOKENS.map((token, index) => ({
+              ...token,
+              percentage: index === 0 ? 50 : index === 1 ? 30 : 20,
+              isSelected: true
+            })),
+            balance: "0.00",
+            status: "Active",
+            createdAt: new Date().toLocaleDateString()
+          });
+        } else {
+          // Use real vault data
+          console.log('Using real vault data');
+          const createdDate = new Date().toLocaleDateString(); // Use current date as fallback
+          
+          setVault({
+            address: id,
+            name: "Splitter Vault",
+            tokens: tokens || [],
+            balance: "0.00",
+            status: "Active",
+            createdAt: createdDate
+          });
+        }
+        
+      } catch (error) {
+        console.error('Error fetching vault data:', error);
+        setError('Failed to fetch vault data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVaultData();
+  }, [id, connectedAccount]);
 
   const fetchTokenBalances = async (showToast = false) => {
     if (!vault || !connectedAccount) return;
@@ -125,15 +170,37 @@ export default function VaultDetails() {
     }, 2000); // Wait 2 seconds for the transaction to be processed
   };
 
+  const handleWithdrawSuccess = () => {
+    // Refresh token balances after successful withdrawal
+    console.log("Withdrawal successful, refreshing token balances...");
+    setShowWithdrawModal(false); // Close modal on success
+    setTimeout(() => {
+      fetchTokenBalances(false); // Don't show toast for auto-refresh after withdrawal
+    }, 2000); // Wait 2 seconds for the transaction to be processed
+  };
+
+  const hasTokenBalances = Object.values(tokenBalances).some(balance => parseFloat(balance) > 0);
+
   return (
+    <>
     <div className="grid lg:grid-cols-3 gap-6">
       {/* Main Vault Info */}
       <div className="lg:col-span-2 space-y-6">
         <div className="brut-card bg-white p-6">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-black">{vault.name}</h1>
-            <div className="brut-btn bg-lime-300">
-              {vault.status}
+            <div className="flex items-center space-x-3">
+              <div className="brut-btn bg-lime-300">
+                {vault.status}
+              </div>
+              {connectedAccount && hasTokenBalances && (
+                <button
+                  onClick={() => setShowWithdrawModal(true)}
+                  className="brut-btn bg-red-300 border-red-500"
+                >
+                   Withdraw
+                </button>
+              )}
             </div>
           </div>
           
@@ -144,11 +211,11 @@ export default function VaultDetails() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="brut-card bg-lime-200 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* <div className="brut-card bg-lime-200 p-4">
               <p className="text-sm font-bold">Total Balance</p>
               <p className="text-2xl font-black">{vault.balance} MAS</p>
-            </div>
+            </div> */}
             <div className="brut-card bg-yellow-200 p-4">
               <p className="text-sm font-bold">Tokens</p>
               <p className="text-2xl font-black">{vault.tokens.length}</p>
@@ -185,7 +252,7 @@ export default function VaultDetails() {
                   <div className="text-right">
                     <div className="text-lg font-bold">{token.percentage}%</div>
                     <div className="text-sm text-gray-600">of deposits</div>
-                    <div className="mt-2 p-2 bg-white rounded-lg border">
+                    {/* <div className="mt-2 p-2 bg-white rounded-lg border">
                       <div className="text-xs text-gray-500">Balance:</div>
                       <div className="font-bold text-sm">
                         {balancesLoading ? (
@@ -194,7 +261,7 @@ export default function VaultDetails() {
                           `${tokenBalances[token.address] || '0'} ${token.symbol}`
                         )}
                       </div>
-                    </div>
+                    </div> */}
                   </div>
                 </div>
               </div>
@@ -254,6 +321,8 @@ export default function VaultDetails() {
           />
         )}
 
+      
+
         {!connectedAccount && (
           <div className="brut-card bg-yellow-100 p-4">
             <p className="text-sm font-bold mb-2">Connect Wallet</p>
@@ -281,6 +350,33 @@ export default function VaultDetails() {
           </div>
         </div> */}
       </div>
+
+      {/* Withdraw Modal */}
+      {showWithdrawModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl border-3 border-ink-950 shadow-brut max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-black">Withdraw from {vault.name}</h2>
+                <button
+                  onClick={() => setShowWithdrawModal(false)}
+                  className="text-2xl font-bold hover:bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <VaultWithdraw
+                vaultAddress={vault.address}
+                vaultTokens={vault.tokens}
+                tokenBalances={tokenBalances}
+                onSuccess={handleWithdrawSuccess}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    </>
   );
 }
