@@ -6,6 +6,7 @@ import {
   fileToByteArray,
   generateEvent,
   Storage,
+  getBytecodeOf,
 } from '@massalabs/massa-as-sdk';
 import { Args, boolToByte, stringToBytes } from '@massalabs/as-types';
 import { _setOwner } from './lib/ownership-internal';
@@ -18,22 +19,34 @@ import {
   WMAS_TOKEN_ADDRESS,
 } from './storage';
 import { ISplitter } from './interfaces/ISplitter';
+import { IAutomatedSplitter } from './interfaces/IAutomatedSplitter';
 import { u256 } from 'as-bignum/assembly';
 import { PersistentMap } from '@massalabs/massa-as-sdk/assembly/collections';
 import { onlyOwner } from './lib/ownership';
 import { generateSplitterUserKey } from './lib/utils';
 import { IMRC20 } from './interfaces/IMRC20';
 import { getBalanceEntryCost } from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20-external';
+import {
+  DCAConfig,
+  ScheduledDepositConfig,
+  SavingsStrategyConfig,
+} from './structs/automation-config';
 
 // Mapping from token address to its corresponding eaglefi pool address
 const tokensPoolsMap = new PersistentMap<string, string>('tpools');
 // Storage key for eaglefi swap router address
 const EAGLE_SWAP_ROUTER_ADDRESS = 'ESAPR';
+// Storage keys for template contract addresses
+const SPLITTER_TEMPLATE_ADDRESS = 'SPLITTER_TEMPLATE';
+const AUTOMATED_SPLITTER_TEMPLATE_ADDRESS = 'AUTOMATED_SPLITTER_TEMPLATE';
 
 /**
  * This function is meant to be called only one time: when the contract is deployed.
  *
  * @param binaryArgs - Arguments serialized with Args
+ * - swapRouterAddress: string - EagleFi swap router address
+ * - splitterTemplateAddress: string - Pre-deployed splitter template address
+ * - automatedSplitterTemplateAddress: string - Pre-deployed automated splitter template address
  */
 export function constructor(binaryArgs: StaticArray<u8>): void {
   // This line is important. It ensures that this function can't be called in the future.
@@ -46,8 +59,20 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
     .nextString()
     .expect('swap router address expected');
 
+  const splitterTemplateAddress = args
+    .nextString()
+    .expect('splitter template address expected');
+
+  const automatedSplitterTemplateAddress = args
+    .nextString()
+    .expect('automated splitter template address expected');
+
   // Set the eaglefi swap router address
   Storage.set(EAGLE_SWAP_ROUTER_ADDRESS, swapRouterAddress);
+
+  // Set template addresses
+  Storage.set(SPLITTER_TEMPLATE_ADDRESS, splitterTemplateAddress);
+  Storage.set(AUTOMATED_SPLITTER_TEMPLATE_ADDRESS, automatedSplitterTemplateAddress);
 
   // Set default tokens pools of eaglefi
   tokensPoolsMap.set(
@@ -85,8 +110,13 @@ export function createSplitterVault(binaryArgs: StaticArray<u8>): void {
 
   const caller = Context.caller();
 
-  const splitterVaultByteCode: StaticArray<u8> = fileToByteArray(
-    'build/splitter.wasm',
+  // Get the splitter template address from storage
+  const templateAddress = Storage.get(SPLITTER_TEMPLATE_ADDRESS);
+  assert(templateAddress != null, 'SPLITTER_TEMPLATE_NOT_SET');
+
+  // Get bytecode from the template contract
+  const splitterVaultByteCode: StaticArray<u8> = getBytecodeOf(
+    new Address(templateAddress),
   );
 
   const vaultAddress = createSC(splitterVaultByteCode);
@@ -139,8 +169,13 @@ export function createAndDepositSplitterVault(
 
   const caller = Context.caller();
 
-  const splitterVaultByteCode: StaticArray<u8> = fileToByteArray(
-    'build/splitter.wasm',
+  // Get the splitter template address from storage
+  const templateAddress = Storage.get(SPLITTER_TEMPLATE_ADDRESS);
+  assert(templateAddress != null, 'SPLITTER_TEMPLATE_NOT_SET');
+
+  // Get bytecode from the template contract
+  const splitterVaultByteCode: StaticArray<u8> = getBytecodeOf(
+    new Address(templateAddress),
   );
 
   const vaultAddress = createSC(splitterVaultByteCode);
@@ -209,6 +244,104 @@ export function createAndDepositSplitterVault(
   ReentrancyGuard.endNonReentrant();
 }
 
+/**
+ * Create an automated splitter vault with automation capabilities
+ * @param binaryArgs - Arguments serialized with Args
+ * - tokensWithPercentage: TokenWithPercentage[]
+ * - initCoins: u64 - Initial coins for vault creation
+ * - enableDCA: bool - Enable DCA automation
+ * - dcaConfig: DCAConfig - DCA configuration
+ * - enableScheduledDeposits: bool - Enable scheduled deposits
+ * - scheduledDepositConfig: ScheduledDepositConfig - Scheduled deposit configuration
+ * - enableSavingsStrategy: bool - Enable savings strategy
+ * - savingsStrategyConfig: SavingsStrategyConfig - Savings strategy configuration
+ * - initialGasReserve: u64 - Initial gas reserve for deferred operations
+ */
+export function createAutomatedVault(binaryArgs: StaticArray<u8>): void {
+  ReentrancyGuard.nonReentrant();
+
+  const args = new Args(binaryArgs);
+
+  const tokensWithPercentage = args
+    .nextSerializableObjectArray<TokenWithPercentage>()
+    .expect('tokens with percentage expected');
+
+  const initCoins = args.nextU64().expect('Vault initial coins expected');
+
+  const enableDCA = args.nextBool().expect('enableDCA flag expected');
+  const dcaConfig = args
+    .nextSerializable<DCAConfig>()
+    .expect('DCA config expected');
+
+  const enableScheduledDeposits = args
+    .nextBool()
+    .expect('enableScheduledDeposits flag expected');
+  const scheduledDepositConfig = args
+    .nextSerializable<ScheduledDepositConfig>()
+    .expect('Scheduled deposit config expected');
+
+  const enableSavingsStrategy = args
+    .nextBool()
+    .expect('enableSavingsStrategy flag expected');
+  const savingsStrategyConfig = args
+    .nextSerializable<SavingsStrategyConfig>()
+    .expect('Savings strategy config expected');
+
+  const initialGasReserve = args
+    .nextU64()
+    .expect('initialGasReserve expected');
+
+  const caller = Context.caller();
+
+  // Get the automated splitter template address from storage
+  const templateAddress = Storage.get(AUTOMATED_SPLITTER_TEMPLATE_ADDRESS);
+  assert(templateAddress != null, 'AUTOMATED_SPLITTER_TEMPLATE_NOT_SET');
+
+  // Get bytecode from the template contract
+  const automatedSplitterByteCode: StaticArray<u8> = getBytecodeOf(
+    new Address(templateAddress),
+  );
+
+  const vaultAddress = createSC(automatedSplitterByteCode);
+
+  // Call the constructor of the automated splitter contract
+  const automatedSplitterContract = new IAutomatedSplitter(vaultAddress);
+
+  automatedSplitterContract.init(
+    tokensWithPercentage,
+    caller,
+    enableDCA,
+    dcaConfig,
+    enableScheduledDeposits,
+    scheduledDepositConfig,
+    enableSavingsStrategy,
+    savingsStrategyConfig,
+    initialGasReserve,
+    initCoins,
+  );
+
+  // Store the unique key for the user and the vault
+  const userVaultKey = generateSplitterUserKey(
+    caller.toString(),
+    vaultAddress.toString(),
+  );
+  Storage.set(userVaultKey, '1');
+
+  // Emit an event with the address of the newly created automated vault
+  generateEvent(
+    createEvent('CREATE_AUTOMATED_VAULT', [
+      vaultAddress.toString(),
+      caller.toString(),
+      enableDCA.toString(),
+      enableScheduledDeposits.toString(),
+      enableSavingsStrategy.toString(),
+      initialGasReserve.toString(),
+    ]),
+  );
+
+  ReentrancyGuard.endNonReentrant();
+}
+
 export function getTokenPoolAddress(
   binaryArgs: StaticArray<u8>,
 ): StaticArray<u8> {
@@ -233,11 +366,11 @@ export function setTokenPoolAddress(binaryArgs: StaticArray<u8>): void {
 
   generateEvent(
     'Token pool address set: ' +
-      tokenAddress +
-      ' -> ' +
-      poolAddress +
-      ' by ' +
-      Context.caller().toString(),
+    tokenAddress +
+    ' -> ' +
+    poolAddress +
+    ' by ' +
+    Context.caller().toString(),
   );
 }
 
@@ -253,9 +386,9 @@ export function setEagleSwapRouterAddress(binaryArgs: StaticArray<u8>): void {
 
   generateEvent(
     'EagleFi Swap Router address set to: ' +
-      routerAddress +
-      ' by ' +
-      Context.caller().toString(),
+    routerAddress +
+    ' by ' +
+    Context.caller().toString(),
   );
 }
 

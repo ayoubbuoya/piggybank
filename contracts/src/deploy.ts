@@ -13,7 +13,7 @@ const provider = JsonRpcProvider.buildnet(account);
 
 console.log('Deploying contract...');
 
-const byteCode = getScByteCode('build', 'factory.wasm');
+const byteCode = getScByteCode('build', 'factory-template.wasm');
 
 const constructorArgs = new Args().addString(
   'AS1Kf2KVdYghv9PeVcgQKVBpuVAqdvfwwMbGuffByxJbSMLqLvVo', // EagleFi Swap Router Address

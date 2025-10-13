@@ -2,7 +2,7 @@ import { Args, DeserializedResult, Serializable } from '@massalabs/massa-web3';
 
 // TokenWithPercentage class for smart contract interaction
 export class TokenWithPercentage implements Serializable<TokenWithPercentage> {
-  constructor(public address: string = '', public percentage: bigint = 0n) {}
+  constructor(public address: string = '', public percentage: bigint = 0n) { }
 
   serialize(): Uint8Array {
     const args = new Args()
@@ -74,3 +74,57 @@ export const AVAILABLE_TOKENS: Omit<TokenSelection, 'percentage' | 'isSelected'>
     logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png'
   }
 ];
+
+// Automation-related types
+export enum AutomationFrequency {
+  DAILY = 0,
+  WEEKLY = 1,
+  BIWEEKLY = 2,
+  MONTHLY = 3,
+}
+
+export enum StrategyType {
+  ACCUMULATION = 0,
+  DISTRIBUTION = 1,
+  HYBRID = 2,
+}
+
+export interface DCAConfigData {
+  enabled: boolean;
+  amount: string;
+  frequency: AutomationFrequency;
+  startTime: Date;
+  endTime: Date;
+  gasPerExecution: string;
+}
+
+export interface ScheduledDepositConfigData {
+  enabled: boolean;
+  depositAmount: string;
+  frequency: AutomationFrequency;
+  sourceWallet: string;
+  startTime: Date;
+  endTime: Date;
+  maxRetries: number;
+  gasPerExecution: string;
+}
+
+export interface SavingsStrategyConfigData {
+  enabled: boolean;
+  strategyType: StrategyType;
+  baseAmount: string;
+  growthRate: number;
+  frequency: AutomationFrequency;
+  distributionAddress: string;
+  phaseTransitionTime: Date;
+  startTime: Date;
+  endTime: Date;
+  gasPerExecution: string;
+}
+
+export interface AutomationConfig {
+  dca: DCAConfigData;
+  scheduledDeposit: ScheduledDepositConfigData;
+  savingsStrategy: SavingsStrategyConfigData;
+  initialGasReserve: string;
+}

@@ -39,6 +39,12 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   // If you remove this check, someone could call your constructor function and reset your smart contract.
   assert(Context.isDeployingContract());
 
+  // If no args provided (template deployment), just initialize reentrancy guard
+  if (binaryArgs.length == 0) {
+    ReentrancyGuard.__ReentrancyGuard_init();
+    return;
+  }
+
   const args = new Args(binaryArgs);
 
   const tokenWithPercentage = args
@@ -236,4 +242,106 @@ export function withdraw(binaryArgs: StaticArray<u8>): void {
   );
 
   ReentrancyGuard.endNonReentrant();
+}
+
+
+// ============================================
+// AUTOMATION FUNCTIONS
+// ============================================
+
+// Storage keys for scheduled deposits
+const SD_ENABLED = stringToBytes('sd_enabled');
+const SD_AMOUNT = stringToBytes('sd_amount');
+const SD_FREQUENCY = stringToBytes('sd_frequency');
+const SD_SOURCE_WALLET = stringToBytes('sd_source');
+const SD_START_TIME = stringToBytes('sd_start');
+const SD_END_TIME = stringToBytes('sd_end');
+const SD_NEXT_EXECUTION = stringToBytes('sd_next');
+const SD_MAX_RETRIES = stringToBytes('sd_retries');
+const SD_GAS_PER_EXECUTION = stringToBytes('sd_gas');
+const GAS_RESERVE = stringToBytes('gas_reserve');
+
+/**
+ * Enable scheduled deposits for this vault
+ * Can only be called by vault owner
+ */
+export function enableScheduledDeposits(binaryArgs: StaticArray<u8>): void {
+  onlyOwner();
+
+  const args = new Args(binaryArgs);
+
+  const depositAmount = args.nextU256().expect('deposit amount expected');
+  const frequency = args.nextU8().expect('frequency expected');
+  const sourceWallet = args.nextString().expect('source wallet expected');
+  const startTime = args.nextU64().expect('start time expected');
+  const endTime = args.nextU64().expect('end time expected');
+  const maxRetries = args.nextU8().expect('max retries expected');
+  const gasPerExecution = args.nextU64().expect('gas per execution expected');
+
+  // Store configuration
+  Storage.set(SD_ENABLED, stringToBytes('1'));
+  Storage.set(SD_AMOUNT, stringToBytes(depositAmount.toString()));
+  Storage.set(SD_FREQUENCY, u64ToBytes(frequency));
+  Storage.set(SD_SOURCE_WALLET, stringToBytes(sourceWallet));
+  Storage.set(SD_START_TIME, u64ToBytes(startTime));
+  Storage.set(SD_END_TIME, u64ToBytes(endTime));
+  Storage.set(SD_NEXT_EXECUTION, u64ToBytes(startTime));
+  Storage.set(SD_MAX_RETRIES, u64ToBytes(maxRetries));
+  Storage.set(SD_GAS_PER_EXECUTION, u64ToBytes(gasPerExecution));
+
+  generateEvent(createEvent('SCHEDULED_DEPOSITS_ENABLED', [
+    depositAmount.toString(),
+    frequency.toString(),
+    sourceWallet,
+    startTime.toString(),
+    endTime.toString()
+  ]));
+}
+
+/**
+ * Disable scheduled deposits
+ * Can only be called by vault owner
+ */
+export function disableScheduledDeposits(): void {
+  onlyOwner();
+  Storage.set(SD_ENABLED, stringToBytes('0'));
+  generateEvent(createEvent('SCHEDULED_DEPOSITS_DISABLED', []));
+}
+
+/**
+ * Add gas reserve for automation
+ * Anyone can add gas to help fund automation
+ */
+export function addGas(): void {
+  const amount = Context.transferredCoins();
+  const currentGas = Storage.has(GAS_RESERVE)
+    ? SafeMath.add(Context.transferredCoins(), Storage.get(GAS_RESERVE).length > 0 ? u64(Storage.get(GAS_RESERVE)[0]) : 0)
+    : amount;
+
+  Storage.set(GAS_RESERVE, u64ToBytes(currentGas));
+
+  generateEvent(createEvent('GAS_ADDED', [
+    amount.toString(),
+    currentGas.toString()
+  ]));
+}
+
+/**
+ * Get scheduled deposits status
+ */
+export function getScheduledDepositsStatus(): StaticArray<u8> {
+  const enabled = Storage.has(SD_ENABLED) && Storage.get(SD_ENABLED) == stringToBytes('1');
+
+  const result = new Args();
+  result.add(enabled);
+
+  if (enabled) {
+    result.add(Storage.has(SD_NEXT_EXECUTION) ? Storage.get(SD_NEXT_EXECUTION)[0] : 0);
+    result.add(Storage.has(GAS_RESERVE) ? Storage.get(GAS_RESERVE)[0] : 0);
+  } else {
+    result.add(0);
+    result.add(0);
+  }
+
+  return result.serialize();
 }
