@@ -215,14 +215,16 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
     assert(amountOut > u256.Zero, 'SWAP_FAILED_FOR_' + tokenAddress);
   }
 
-  // Emit an event indicating the deposit was successful
-  generateEvent(
-    createEvent('DEOSIT', [
-      callerAddress.toString(),
-      amount.toString(),
-      deadline.toString(),
-    ]),
-  );
+  if (!isFromFactory) {
+    // Emit an event indicating the deposit was successful only if the call is not from the factory
+    generateEvent(
+      createEvent('DEOSIT', [
+        callerAddress.toString(),
+        amount.toString(),
+        deadline.toString(),
+      ]),
+    );
+  }
 
   // End Reentrancy Guard
   ReentrancyGuard.endNonReentrant();

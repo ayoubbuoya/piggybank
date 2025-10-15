@@ -156,14 +156,6 @@ export function createAndDepositSplitterVault(
   );
   Storage.set(userVaultKey, '1');
 
-  // Emit an event with the address of the newly created splitter vault
-  generateEvent(
-    createEvent('CREATE_SPLITTER_VAULT', [
-      vaultAddress.toString(),
-      caller.toString(),
-    ]),
-  );
-
   // Start the deposit process
   const baseToken = new IMRC20(new Address(BASE_TOKEN_ADDRESS));
 
