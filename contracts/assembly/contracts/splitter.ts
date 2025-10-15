@@ -11,7 +11,7 @@ import { TokenWithPercentage } from './structs/token';
 import { _setOwner } from './lib/ownership-internal';
 import { ReentrancyGuard } from './lib/ReentrancyGuard';
 import { wrapMasToWMAS } from './lib/wrapping';
-import { WMAS_TOKEN_ADDRESS } from './storage';
+import { BASE_TOKEN_ADDRESS, WMAS_TOKEN_ADDRESS } from './storage';
 import { IMRC20 } from './interfaces/IMRC20';
 import { getBalanceEntryCost } from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20-external';
 import { deserializeStringArray, serializeStringArray } from './lib/utils';
@@ -73,16 +73,16 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   Storage.set(createdAtKey, u64ToBytes(Context.timestamp()));
 
   // INcrease Max allownace of WMAS for the eaglefi router
-  const wmasToken = new IMRC20(new Address(WMAS_TOKEN_ADDRESS));
+  const baseToken = new IMRC20(new Address(BASE_TOKEN_ADDRESS));
 
   const factoryContract = new IFactory(caller);
 
   const eaglefiRouterAddress = factoryContract.getEagleSwapRouterAddress();
 
-  wmasToken.increaseAllowance(
+  baseToken.increaseAllowance(
     new Address(eaglefiRouterAddress),
     u256.fromU64(u64.MAX_VALUE),
-    getBalanceEntryCost(WMAS_TOKEN_ADDRESS, Context.callee().toString()),
+    getBalanceEntryCost(BASE_TOKEN_ADDRESS, Context.callee().toString()),
   );
 
   // Initialize the reentrancy guard
@@ -95,11 +95,10 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   const args = new Args(binaryArgs);
 
   const amount = args.nextU256().expect('amount expected');
-  const isNative = args.nextBool().expect('isNative expected');
   const coinsToUse = args.nextU64().expect('coinsToUse expected');
   const deadline = args.nextU64().expect('deadline expected');
 
-  const wmasToken = new IMRC20(new Address(WMAS_TOKEN_ADDRESS));
+  const baseToken = new IMRC20(new Address(BASE_TOKEN_ADDRESS));
 
   const calleeAddress = Context.callee();
   const callerAddress = Context.caller();
@@ -110,21 +109,16 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
 
   // Do the transfer only if the call is not from the factory (createAndDepositSplitterVault)
   if (!isFromFactory) {
-    // If isNative is true, Wrap the native token (MAS) into WMAS
-    if (isNative) {
-      wrapMasToWMAS(amount, new Address(WMAS_TOKEN_ADDRESS));
-    } else {
-      // Transfer the tokens from the sender to this contract
-      wmasToken.transferFrom(
-        Context.caller(),
-        calleeAddress,
-        amount,
-        getBalanceEntryCost(WMAS_TOKEN_ADDRESS, calleeAddress.toString()),
-      );
-    }
+    // Transfer the tokens from the sender to this contract
+    baseToken.transferFrom(
+      Context.caller(),
+      calleeAddress,
+      amount,
+      getBalanceEntryCost(BASE_TOKEN_ADDRESS, calleeAddress.toString()),
+    );
   }
 
-  // Distribute the  WMAS amount to the tokens according to their percentages
+  // Distribute the  USDC amount to the tokens according to their percentages
 
   // Get all tokens and their corresponding percentages from the persistent map
   const tokens: string[] = deserializeStringArray(
@@ -143,8 +137,8 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   for (let i = 0; i < tokens.length; i++) {
     const tokenAddress = tokens[i];
 
-    if (tokenAddress == WMAS_TOKEN_ADDRESS) {
-      // If the token is WMAS, just Keep their percentage in the vault, do nothing
+    if (tokenAddress == BASE_TOKEN_ADDRESS) {
+      // If the token is BASE_TOKEN, just Keep their percentage in the vault, do nothing
       continue;
     }
 
@@ -161,26 +155,58 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
       u256.fromU64(100),
     );
 
-    // Get the corresponding pool address from the factory
-    const poolAddress = factory.getTokenPoolAddress(tokenAddress);
+    let swapRoute: SwapPath[];
 
-    assert(poolAddress.length > 0, 'POOL_NOT_FOUND: ' + tokenAddress);
+    const basepoolAddress = factory.getTokenPoolAddress(BASE_TOKEN_ADDRESS);
 
-    // The actual swap on eaglefi DEX
-    const swapPath = new SwapPath(
-      new Address(poolAddress),
-      new Address(WMAS_TOKEN_ADDRESS),
-      new Address(tokenAddress),
-      calleeAddress,
-      tokenAmount,
-      u256.One, // amountOutMin set to 1 for simplicity, should be handled properly in a real scenario
-      true,
-    );
+    assert(basepoolAddress.length > 0, 'BASE_POOL_NOT_FOUND');
+
+    // if token Address is wmas, swap with one route only, else two routes (WMAS as intermediary) BASE -> WMAS -> TOKEN
+    if (tokenAddress == WMAS_TOKEN_ADDRESS) {
+      // The actual swap on eaglefi DEX
+      const swapPath = new SwapPath(
+        new Address(basepoolAddress),
+        new Address(BASE_TOKEN_ADDRESS),
+        new Address(tokenAddress),
+        calleeAddress,
+        tokenAmount,
+        u256.One, // amountOutMin set to 1 for simplicity, should be handled properly in a real scenario
+        true,
+      );
+
+      swapRoute = [swapPath];
+    } else {
+      const poolAddress = factory.getTokenPoolAddress(tokenAddress);
+
+      assert(poolAddress.length > 0, 'POOL_NOT_FOUND_FOR_' + tokenAddress);
+
+      const swapPath1 = new SwapPath(
+        new Address(basepoolAddress),
+        new Address(BASE_TOKEN_ADDRESS),
+        new Address(WMAS_TOKEN_ADDRESS),
+        new Address(poolAddress),
+        tokenAmount,
+        u256.One, // amountOutMin set to 1 for simplicity, should be handled properly in a real scenario
+        true,
+      );
+
+      const swapPath2 = new SwapPath(
+        new Address(poolAddress),
+        new Address(WMAS_TOKEN_ADDRESS),
+        new Address(tokenAddress),
+        calleeAddress,
+        u256.Zero, // amountIn will be determined by the previous swap
+        u256.One, // amountOutMin set to 1 for simplicity, should be handled properly in a real scenario
+        false,
+      );
+
+      swapRoute = [swapPath1, swapPath2];
+    }
 
     const customDeadline = u64.MAX_VALUE;
 
     const amountOut: u256 = eagleSwapRouter.swap(
-      [swapPath],
+      swapRoute,
       coinsToUse,
       customDeadline,
       coinsToUse,
@@ -189,15 +215,16 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
     assert(amountOut > u256.Zero, 'SWAP_FAILED_FOR_' + tokenAddress);
   }
 
-  // Emit an event indicating the deposit was successful
-  generateEvent(
-    createEvent('DEOSIT', [
-      callerAddress.toString(),
-      amount.toString(),
-      isNative.toString(),
-      deadline.toString(),
-    ]),
-  );
+  if (!isFromFactory) {
+    // Emit an event indicating the deposit was successful only if the call is not from the factory
+    generateEvent(
+      createEvent('DEOSIT', [
+        callerAddress.toString(),
+        amount.toString(),
+        deadline.toString(),
+      ]),
+    );
+  }
 
   // End Reentrancy Guard
   ReentrancyGuard.endNonReentrant();

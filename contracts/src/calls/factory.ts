@@ -12,6 +12,7 @@ import {
   Web3Provider,
 } from '@massalabs/massa-web3';
 import { TokenWithPercentage } from './structs/TokenWithPercentage';
+import { getScByteCode } from '../utils';
 
 export async function createSplitterVault(
   factoryContract: SmartContract,
@@ -85,7 +86,6 @@ export async function createAndDepositSplitterVault(
   factoryContract: SmartContract,
   tokensWithPercentage: TokenWithPercentage[],
   amount: string,
-  isNative: boolean,
 ) {
   console.log('Creating splitter vault...');
 
@@ -97,13 +97,12 @@ export async function createAndDepositSplitterVault(
     .addSerializableObjectArray(tokensWithPercentage)
     .addU64(parseMas(initCoins))
     .addU64(parseMas(depositCoins))
-    .addU256(parseMas(amount))
-    .addBool(isNative)
+    .addU256(parseUnits(amount, 6)) // Assuming amount is in USDC with 6 decimals
     .addU64(parseMas(coinsToUse)) // coinsToUse
     .addU64(U64.MAX) // A far future timestamp for testing purposes
     .serialize();
 
-  const coins = isNative ? parseMas('5') + parseMas(amount) : parseMas('5');
+  const coins = parseMas('5');
 
   const operation = await factoryContract.call(
     'createAndDepositSplitterVault',
@@ -127,4 +126,29 @@ export async function createAndDepositSplitterVault(
     console.log('Speculative events:', spec_events);
     throw new Error('Failed to create new splitter vault');
   }
+}
+
+export async function deployFactory(
+  provider: Web3Provider,
+): Promise<SmartContract> {
+  console.log('Deploying factory contract...');
+
+  const byteCode = getScByteCode('build', 'factory.wasm');
+
+  const constructorArgs = new Args().addString(
+    'AS1Kf2KVdYghv9PeVcgQKVBpuVAqdvfwwMbGuffByxJbSMLqLvVo', // EagleFi Swap Router Address
+  );
+
+  const contract = await SmartContract.deploy(
+    provider,
+    byteCode,
+    constructorArgs,
+    {
+      coins: Mas.fromString('0.1'),
+    },
+  );
+
+  console.log('Factory Contract deployed at:', contract.address);
+
+  return contract;
 }
