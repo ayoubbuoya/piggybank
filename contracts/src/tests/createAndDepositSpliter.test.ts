@@ -18,6 +18,7 @@ import {
   getUserSplitterVaults,
 } from '../calls/factory';
 import { depositToSplitterVault } from '../calls/splitter';
+import { increaseTokenAllowance } from '../calls/token';
 
 dotenv.config();
 
@@ -26,7 +27,7 @@ const provider = JsonRpcProvider.buildnet(account);
 
 const factoryContract = new SmartContract(
   provider,
-  'AS12L2f9urCwMfymfg1c2sCycMVxMSGzbiENiGsxWsw9NZYAdnkWp', // Factory contract address
+  'AS12czXTHHYPzaMf6rPVHSdZ8dFodpCuMHzecHFDncoZLU6cT3TrC', // Factory contract address
 );
 
 const usdcTokenPercentage = new TokenWithPercentage(USDC_TOKEN_ADDRESS, 50n);
@@ -42,11 +43,17 @@ console.log('Factory contract address:', factoryContract.address.toString());
 
 const amount = '10';
 
+// Increase the Allowance of the factory contract to spend user's USDC
+await increaseTokenAllowance(
+  usdcTokenContract,
+  factoryContract.address.toString(),
+  amount,
+);
+
 await createAndDepositSplitterVault(
   factoryContract,
   tokensWithPercentage,
   amount,
-  true,
 );
 
 // Get teh user splitter vaults

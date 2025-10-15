@@ -14,6 +14,7 @@ import { TokenWithPercentage } from '../calls/structs/TokenWithPercentage';
 import { USDC_TOKEN_ADDRESS, WETH_TOKEN_ADDRESS } from '../calls/const';
 import { createSplitterVault, getUserSplitterVaults } from '../calls/factory';
 import { depositToSplitterVault } from '../calls/splitter';
+import { increaseTokenAllowance } from '../calls/token';
 
 dotenv.config();
 
@@ -22,11 +23,12 @@ const provider = JsonRpcProvider.buildnet(account);
 
 const factoryContract = new SmartContract(
   provider,
-  'AS17JWnv1cvNxM1ZFvoPbJuzcKy1FSH4BeeRyRnvHyDpHoAfxeVP',
+  'AS15yZieqFRZdfu9WUSMuk1ZjajdYYcjJBt9zc3y1sFkECXRDdEZ',
 );
 
-const usdcTokenPercentage = new TokenWithPercentage(USDC_TOKEN_ADDRESS, 50n);
+const usdcTokenPercentage = new TokenWithPercentage(USDC_TOKEN_ADDRESS, 20n);
 const wethTokenPercentage = new TokenWithPercentage(WETH_TOKEN_ADDRESS, 50n);
+const wmasTokenPercentage = new TokenWithPercentage(BUILDNET_TOKENS.WMAS, 30n);
 const usdcTokenContract = new MRC20(provider, USDC_TOKEN_ADDRESS);
 const wethTokenContract = new MRC20(provider, WETH_TOKEN_ADDRESS);
 const wmasTokenContract = new MRC20(provider, BUILDNET_TOKENS.WMAS);
@@ -55,8 +57,17 @@ console.log('Test passed successfully');
 
 const firstSplitterVault = new SmartContract(provider, splitterVaults[0]);
 
+const amount = '10';
+
+// Increase the Allowance of the splitter vault contract to spend user's USDC
+await increaseTokenAllowance(
+  usdcTokenContract,
+  firstSplitterVault.address.toString(),
+  amount,
+);
+
 // Deposit
-await depositToSplitterVault(firstSplitterVault, '10', true);
+await depositToSplitterVault(firstSplitterVault, amount);
 
 // Get the balance of the splitter vault
 const balance = await usdcTokenContract.balanceOf(
