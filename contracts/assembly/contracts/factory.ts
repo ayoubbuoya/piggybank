@@ -13,6 +13,7 @@ import { ReentrancyGuard } from './lib/ReentrancyGuard';
 import { TokenWithPercentage } from './structs/token';
 import { wrapMasToWMAS } from './lib/wrapping';
 import {
+  BASE_TOKEN_ADDRESS,
   USDC_TOKEN_ADDRESS,
   WETH_TOKEN_ADDRESS,
   WMAS_TOKEN_ADDRESS,
@@ -131,8 +132,6 @@ export function createAndDepositSplitterVault(
 
   const depositAmount = args.nextU256().expect('Deposit amount expected');
 
-  const isNative = args.nextBool().expect('isNative expected');
-
   const coinsToUse = args.nextU64().expect('coinsToUse expected');
 
   const deadline = args.nextU64().expect('deadline expected');
@@ -166,35 +165,18 @@ export function createAndDepositSplitterVault(
   );
 
   // Start the deposit process
-  const wmasToken = new IMRC20(new Address(WMAS_TOKEN_ADDRESS));
+  const baseToken = new IMRC20(new Address(BASE_TOKEN_ADDRESS));
 
-  // If isNative is true, Wrap the native token (MAS) into WMAS
-  if (isNative) {
-    wrapMasToWMAS(depositAmount, new Address(WMAS_TOKEN_ADDRESS));
-    // Transfer the WMAS from this contract to the vault contract after wrapping
-    wmasToken.transfer(
-      vaultAddress,
-      depositAmount,
-      getBalanceEntryCost(WMAS_TOKEN_ADDRESS, vaultAddress.toString()),
-    );
-  } else {
-    // Transfer the tokens from the sender to this vault contract
-    wmasToken.transferFrom(
-      Context.caller(),
-      vaultAddress,
-      depositAmount,
-      getBalanceEntryCost(WMAS_TOKEN_ADDRESS, vaultAddress.toString()),
-    );
-  }
+  // Transfer the tokens from the sender to this vault contract
+  baseToken.transferFrom(
+    Context.caller(),
+    vaultAddress,
+    depositAmount,
+    getBalanceEntryCost(BASE_TOKEN_ADDRESS, vaultAddress.toString()),
+  );
 
   // Call the deposit function of the splitter contract
-  splitterContract.deposit(
-    depositAmount,
-    isNative,
-    coinsToUse,
-    deadline,
-    depositCoins,
-  );
+  splitterContract.deposit(depositAmount, coinsToUse, deadline, depositCoins);
 
   // Emit an event with the address of the newly created splitter vault
   generateEvent(
@@ -202,7 +184,6 @@ export function createAndDepositSplitterVault(
       vaultAddress.toString(),
       caller.toString(),
       depositAmount.toString(),
-      isNative.toString(),
     ]),
   );
 
