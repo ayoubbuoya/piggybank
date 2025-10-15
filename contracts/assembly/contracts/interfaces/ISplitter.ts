@@ -23,17 +23,10 @@ export class ISplitter {
     call(this._origin, 'constructor', args, coins);
   }
 
-  deposit(
-    amount: u256,
-    isNative: bool,
-    coinsToUse: u64,
-    deadline: u64,
-    coins: u64 = 0,
-  ): void {
+  deposit(amount: u256, coinsToUse: u64, deadline: u64, coins: u64 = 0): void {
     const args = new Args();
 
     args.add(amount);
-    args.add(isNative);
     args.add(coinsToUse);
     args.add(deadline);
 
