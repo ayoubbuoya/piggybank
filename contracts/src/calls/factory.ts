@@ -12,6 +12,7 @@ import {
   Web3Provider,
 } from '@massalabs/massa-web3';
 import { TokenWithPercentage } from './structs/TokenWithPercentage';
+import { getScByteCode } from '../utils';
 
 export async function createSplitterVault(
   factoryContract: SmartContract,
@@ -125,4 +126,29 @@ export async function createAndDepositSplitterVault(
     console.log('Speculative events:', spec_events);
     throw new Error('Failed to create new splitter vault');
   }
+}
+
+export async function deployFactory(
+  provider: Web3Provider,
+): Promise<SmartContract> {
+  console.log('Deploying factory contract...');
+
+  const byteCode = getScByteCode('build', 'factory.wasm');
+
+  const constructorArgs = new Args().addString(
+    'AS1Kf2KVdYghv9PeVcgQKVBpuVAqdvfwwMbGuffByxJbSMLqLvVo', // EagleFi Swap Router Address
+  );
+
+  const contract = await SmartContract.deploy(
+    provider,
+    byteCode,
+    constructorArgs,
+    {
+      coins: Mas.fromString('0.1'),
+    },
+  );
+
+  console.log('Factory Contract deployed at:', contract.address);
+
+  return contract;
 }
