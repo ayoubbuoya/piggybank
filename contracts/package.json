@@ -18,7 +18,8 @@
         "events": "tsx src/events.ts",
         "test:createSplitter": "npm run build && tsx src/tests/createSplitterVault.test.ts",
         "test:createAndDepositSplitter": "npm run build && tsx src/tests/createAndDepositSpliter.test.ts",
-        "test:getSplitterInfo": "tsx src/tests/getVaultDetails.test.ts"
+        "test:getSplitterInfo": "tsx src/tests/getVaultDetails.test.ts",
+        "test:autoDeposit": "npm run build && tsx src/tests/autoDeposit.test.ts"
     },
     "keywords": [],
     "author": "",
