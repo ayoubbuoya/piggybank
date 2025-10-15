@@ -15,9 +15,9 @@ import { USDC_TOKEN_ADDRESS, WETH_TOKEN_ADDRESS } from '../calls/const';
 import {
   createAndDepositSplitterVault,
   createSplitterVault,
+  deployFactory,
   getUserSplitterVaults,
 } from '../calls/factory';
-import { depositToSplitterVault } from '../calls/splitter';
 import { increaseTokenAllowance } from '../calls/token';
 
 dotenv.config();
@@ -25,18 +25,20 @@ dotenv.config();
 const account = await Account.fromEnv();
 const provider = JsonRpcProvider.buildnet(account);
 
-const factoryContract = new SmartContract(
-  provider,
-  'AS12czXTHHYPzaMf6rPVHSdZ8dFodpCuMHzecHFDncoZLU6cT3TrC', // Factory contract address
-);
+const factoryContract = await deployFactory(provider);
 
-const usdcTokenPercentage = new TokenWithPercentage(USDC_TOKEN_ADDRESS, 50n);
-const wethTokenPercentage = new TokenWithPercentage(WETH_TOKEN_ADDRESS, 50n);
+const usdcTokenPercentage = new TokenWithPercentage(USDC_TOKEN_ADDRESS, 30n);
+const wethTokenPercentage = new TokenWithPercentage(WETH_TOKEN_ADDRESS, 20n);
+const wmasTokenPercentage = new TokenWithPercentage(BUILDNET_TOKENS.WMAS, 50n);
 const usdcTokenContract = new MRC20(provider, USDC_TOKEN_ADDRESS);
 const wethTokenContract = new MRC20(provider, WETH_TOKEN_ADDRESS);
 const wmasTokenContract = new MRC20(provider, BUILDNET_TOKENS.WMAS);
 
-const tokensWithPercentage = [usdcTokenPercentage, wethTokenPercentage];
+const tokensWithPercentage = [
+  usdcTokenPercentage,
+  wethTokenPercentage,
+  wmasTokenPercentage,
+];
 
 console.log('Account address:', account.address.toString());
 console.log('Factory contract address:', factoryContract.address.toString());
