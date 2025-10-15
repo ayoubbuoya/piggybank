@@ -72,6 +72,10 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
     .nextString()
     .expect('vault creator address expected');
 
+  const eaglefiRouterAddress = args
+    .nextString()
+    .expect('eaglefi router address expected');
+
   const allTokensAddresses = new Array<string>();
 
   // Store the tokens and their percentages in the persistent map
@@ -97,10 +101,6 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
 
   // INcrease Max allownace of WMAS for the eaglefi router
   const baseToken = new IMRC20(new Address(BASE_TOKEN_ADDRESS));
-
-  const factoryContract = new IFactory(caller);
-
-  const eaglefiRouterAddress = factoryContract.getEagleSwapRouterAddress();
 
   baseToken.increaseAllowance(
     new Address(eaglefiRouterAddress),

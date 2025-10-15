@@ -13,12 +13,14 @@ export class ISplitter {
   init(
     tokensWithPercentage: TokenWithPercentage[],
     vaultCreatorAddress: Address,
+    eaglefiRouterAddress: Address,
     coins: u64 = 0,
   ): void {
     const args = new Args();
 
     args.addSerializableObjectArray(tokensWithPercentage);
     args.add(vaultCreatorAddress);
+    args.add(eaglefiRouterAddress);
 
     call(this._origin, 'constructor', args, coins);
   }
