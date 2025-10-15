@@ -11,12 +11,11 @@ import {
   Web3Provider,
 } from '@massalabs/massa-web3';
 import { TokenWithPercentage } from './structs/TokenWithPercentage';
-import { parse } from 'path';
+
 
 export async function depositToSplitterVault(
   splitterVaultContract: SmartContract,
   amount: string,
-  isNative: boolean,
 ) {
   console.log('Depositing to splitter vault...');
 
@@ -26,13 +25,12 @@ export async function depositToSplitterVault(
   const cointsToUse = '0.02'; // Amount of coins to use for the swap if the deposited token is not native
 
   const args = new Args()
-    .addU256(parseMas(amount))
-    .addBool(isNative)
+    .addU256(parseUnits(amount, 6)) // Assuming amount is in USDC with 6 decimals
     .addU64(parseMas(cointsToUse))
     .addU64(BigInt(deadline))
     .serialize();
 
-  const coins = isNative ? parseMas(amount) + parseMas('0.1') : parseMas('0.1');
+  const coins = parseMas('0.1');
 
   const operation = await splitterVaultContract.call('deposit', args, {
     coins,
