@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAccountStore } from "@massalabs/react-ui-kit";
 import Stepper from "../components/Stepper.tsx";
-import { VaultFormData, TokenSelection, AVAILABLE_TOKENS, TokenWithPercentage } from "../lib/types";
+import { TokenSelection, AVAILABLE_TOKENS, TokenWithPercentage } from "../lib/types";
 import { createSplitterVault } from "../lib/massa";
 
 export default function CreateVault() {
@@ -118,10 +118,13 @@ export default function CreateVault() {
           
           <div className="brut-card bg-blue-50 p-4">
             <h3 className="font-bold mb-2">About Splitter Vaults</h3>
-            <p className="text-sm">
-              A splitter vault automatically distributes your deposits across multiple tokens 
+            <p className="text-sm mb-2">
+              A splitter vault automatically distributes your USDC deposits across multiple tokens 
               based on the percentages you configure. Each deposit will be split and swapped 
               into your chosen tokens via EagleFi DEX.
+            </p>
+            <p className="text-xs text-blue-600 font-semibold">
+              💡 You'll need USDC to deposit into your vault. Make sure to bridge USDC to Massa network.
             </p>
           </div>
         </div>
@@ -236,9 +239,13 @@ export default function CreateVault() {
             <h3 className="font-bold mb-2">⚠️ Important Information</h3>
             <ul className="text-sm space-y-1">
               <li>• This will create a new vault on the Massa blockchain</li>
-              <li>• Initial deployment cost: ~5 MAS</li>
-              <li>• Tokens will be swapped via EagleFi DEX</li>
+              <li>• Initial deployment cost: ~5 MAS for gas</li>
+              <li>• Deposits must be made in USDC (6 decimals)</li>
+              <li>• USDC will be swapped to your selected tokens via EagleFi DEX</li>
               <li>• You will be the owner of this vault</li>
+              <li className="text-blue-600 font-semibold">
+                💡 Bridge USDC from Ethereum to deposit
+              </li>
             </ul>
           </div>
 

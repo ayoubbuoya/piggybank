@@ -14,8 +14,9 @@ export default function Landing() {
             .
           </h1>
           <p className="mt-4 text-lg">
-            Create autonomous vaults powered by Massa’s Autonomous Smart
-            Contracts. No bots. No keepers. Just code that runs.
+            Create autonomous vaults powered by Massa's Autonomous Smart
+            Contracts. Deposit USDC and automatically split it across multiple tokens.
+            No bots. No keepers. Just code that runs.
           </p>
           <div className="mt-6 flex gap-3">
             <Link to="/vault/create" className="brut-btn bg-lime-300">
@@ -46,7 +47,7 @@ export default function Landing() {
           <p>Set once. Runs forever with Deferred Calls.</p>
         </BentoCard>
         <BentoCard title="DCA Engine" bg="#84CC16">
-          <p>Swap at regular intervals without off‑chain keepers.</p>
+          <p>Deposit USDC and swap into MAS, ETH, BTC at your chosen ratios via EagleFi DEX.</p>
         </BentoCard>
         <BentoCard title="Subscriptions" bg="#F59E0B">
           <p>On‑chain recurring payments with guaranteed execution.</p>
