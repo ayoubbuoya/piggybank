@@ -155,19 +155,18 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
       u256.fromU64(100),
     );
 
-    // Get the corresponding pool address from the factory
-    const poolAddress = factory.getTokenPoolAddress(tokenAddress);
-
-    assert(poolAddress.length > 0, 'POOL_NOT_FOUND: ' + tokenAddress);
-
     let swapRoute: SwapPath[];
+
+    const basepoolAddress = factory.getTokenPoolAddress(BASE_TOKEN_ADDRESS);
+
+    assert(basepoolAddress.length > 0, 'BASE_POOL_NOT_FOUND');
 
     // if token Address is wmas, swap with one route only, else two routes (WMAS as intermediary) BASE -> WMAS -> TOKEN
     if (tokenAddress == WMAS_TOKEN_ADDRESS) {
       // The actual swap on eaglefi DEX
       const swapPath = new SwapPath(
-        new Address(poolAddress),
-        new Address(WMAS_TOKEN_ADDRESS),
+        new Address(basepoolAddress),
+        new Address(BASE_TOKEN_ADDRESS),
         new Address(tokenAddress),
         calleeAddress,
         tokenAmount,
@@ -177,9 +176,9 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
 
       swapRoute = [swapPath];
     } else {
-      const basepoolAddress = factory.getTokenPoolAddress(BASE_TOKEN_ADDRESS);
+      const poolAddress = factory.getTokenPoolAddress(tokenAddress);
 
-      assert(basepoolAddress.length > 0, 'BASE_POOL_NOT_FOUND');
+      assert(poolAddress.length > 0, 'POOL_NOT_FOUND_FOR_' + tokenAddress);
 
       const swapPath1 = new SwapPath(
         new Address(basepoolAddress),
