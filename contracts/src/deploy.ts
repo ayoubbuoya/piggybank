@@ -25,6 +25,7 @@ const contract = await SmartContract.deploy(
   constructorArgs,
   {
     coins: Mas.fromString('0.1'),
+    maxGas: 3_900_000_000n, // Manual gas limit to bypass estimation (below MAX_GAS_EXECUTE)
   },
 );
 

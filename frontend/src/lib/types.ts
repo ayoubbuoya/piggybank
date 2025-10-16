@@ -87,3 +87,9 @@ export const AVAILABLE_TOKENS: Omit<TokenSelection, 'percentage' | 'isSelected'>
     logo: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png'
   }
 ];
+
+// Re-export DCA types
+export * from './types/dca';
+
+// Dusa DCA Contract Address
+export const DUSA_DCA_CONTRACT_ADDRESS = 'AS12Sm9oqH2C26fx7v8ZYCwyKs9LmrmRGX2WRJT3aK7KnYtrMhq8n';

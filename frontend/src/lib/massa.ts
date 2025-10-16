@@ -600,3 +600,105 @@ export async function getVaultTokenSelections(
     return [];
   }
 }
+
+// ============================================
+// DCA-Related Functions
+// ============================================
+
+/**
+ * Get the amount of unallocated USDC in a vault
+ * This is USDC that has been sent to the vault (e.g., via DCA) but not yet processed
+ */
+export async function getUnallocatedUSDC(
+  connectedAccount: any,
+  vaultAddress: string
+): Promise<string> {
+  try {
+    const vaultContract = new SmartContract(connectedAccount, vaultAddress);
+
+    const callResult = await vaultContract.read('getUnallocatedUSDC');
+
+    if (!callResult || !callResult.value || callResult.value.length === 0) {
+      return '0';
+    }
+
+    const args = new Args(callResult.value);
+    const unallocatedAmount = args.nextU256(); // This returns bigint from massa-web3
+
+    const divisor = BigInt(10 ** USDC_DECIMALS);
+    const readableAmount = (Number(unallocatedAmount) / Number(divisor)).toFixed(USDC_DECIMALS);
+
+    return readableAmount;
+  } catch (error) {
+    console.error('Error getting unallocated USDC:', error);
+    return '0';
+  }
+}
+
+/**
+ * Process unallocated USDC in a vault
+ * This triggers the vault to split any pending USDC across configured tokens
+ */
+export async function processUnallocatedUSDC(
+  connectedAccount: any,
+  vaultAddress: string
+): Promise<{ success: boolean; error?: string }> {
+  const toastId = toast.loading('Processing pending USDC...');
+
+  try {
+    const vaultContract = new SmartContract(connectedAccount, vaultAddress);
+
+    const args = new Args()
+      .addU64(parseMas('0.02')) // coinsToUse for swaps
+      .addU64(BigInt(Date.now() + 300000)) // deadline (5 minutes from now)
+      .serialize();
+
+    console.log('Processing unallocated USDC in vault:', vaultAddress);
+
+    toast.update(toastId, {
+      render: 'Waiting for transaction confirmation...',
+      isLoading: true
+    });
+
+    const operation = await vaultContract.call('processUnallocatedUSDC', args, {
+      coins: parseMas('0.2'), // Gas for processing + swaps
+    });
+
+    const status = await operation.waitSpeculativeExecution();
+
+    if (status === OperationStatus.SpeculativeSuccess) {
+      toast.update(toastId, {
+        render: '✅ Pending USDC processed successfully! Tokens have been distributed.',
+        type: 'success',
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: true };
+    } else {
+      const events = await operation.getSpeculativeEvents();
+      console.log('Process unallocated USDC failed, events:', events);
+
+      toast.update(toastId, {
+        render: 'Processing failed',
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: false, error: 'Processing transaction failed' };
+    }
+  } catch (error) {
+    console.error('Error processing unallocated USDC:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    toast.update(toastId, {
+      render: `Processing failed: ${errorMessage}`,
+      type: 'error',
+      isLoading: false,
+      autoClose: 5000,
+    });
+
+    return { success: false, error: errorMessage };
+  }
+}
