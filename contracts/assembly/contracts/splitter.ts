@@ -143,6 +143,20 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
 
   const isCallerCallee = callerAddress == calleeAddress;
 
+  const autoDepositEnabled = byteToBool(Storage.get(autoDepositEnabledKey));
+
+  // Generate an event for the deposit triggered
+  // if (autoDepositEnabled && isCallerCallee) {
+  //   // If the caller is the contract itself, it means it's an auto deposit, in this case we need to get the amountEachPeriod from the storage
+  //   generateEvent(
+  //     createEvent('AUTO_DEPOSIT_TRIGGERED', [
+  //       callerAddress.toString(),
+  //       amount.toString(),
+  //       deadline.toString(),
+  //     ]),
+  //   );
+  // }
+
   // Do the transfer only if the call is not from the factory (createAndDepositSplitterVault)
   if (!isFromFactory) {
     let fromAddress: Address;
@@ -185,6 +199,10 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
 
   for (let i = 0; i < tokens.length; i++) {
     const tokenAddress = tokens[i];
+
+    generateEvent(
+      'Swap N°' + i.toString() + ' start for token ' + tokenAddress,
+    );
 
     if (tokenAddress == BASE_TOKEN_ADDRESS) {
       // If the token is BASE_TOKEN, just Keep their percentage in the vault, do nothing
@@ -254,14 +272,24 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
 
     const customDeadline = u64.MAX_VALUE;
 
+    generateEvent(
+      'Executing swap N°' + i.toString() + ' for token ' + tokenAddress,
+    );
+
     const amountOut: u256 = eagleSwapRouter.swap(
       swapRoute,
       coinsToUse,
       customDeadline,
-      coinsToUse,
+      coinsToUse * swapRoute.length,
+    );
+
+    generateEvent(
+      'Exec Swap N°' + i.toString() + ' done for token ' + tokenAddress,
     );
 
     assert(amountOut > u256.Zero, 'SWAP_FAILED_FOR_' + tokenAddress);
+
+    generateEvent('Swap N°' + i.toString() + ' done for token ' + tokenAddress);
   }
 
   if (!isFromFactory) {
@@ -276,8 +304,6 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   }
 
   // Schedule the next auto deposit if enabled and if the call is from the contract itself
-  const autoDepositEnabled = byteToBool(Storage.get(autoDepositEnabledKey));
-
   if (autoDepositEnabled && isCallerCallee) {
     _scheduleNextAutoDeposit();
   }
@@ -358,6 +384,8 @@ export function enableAutoDeposit(binaryArgs: StaticArray<u8>): void {
   const coinsToUse = args.nextU64().expect('coins to use expected');
   const depositCoins = args.nextU64().expect('deposit coins expected');
 
+  assert(periodFrequency > 3, 'PERIOD_FREQUENCY_TOO_LOW');
+
   // Current Smart contract address
   const calleeAddress = Context.callee();
 
@@ -420,8 +448,10 @@ function _scheduleNextAutoDeposit(): void {
     .serialize();
 
   const paramsSize = depositArgs.length;
-  const maxGas = 20_000_000;
-  const bookingPeriod = Context.currentPeriod() + period;
+  // const maxGas = 1_000_000_000;
+  const maxGas = 900_000_000;
+  const currentPeriod = Context.currentPeriod();
+  const bookingPeriod = currentPeriod + period;
 
   const slot = findCheapestSlot(
     bookingPeriod,
@@ -453,6 +483,8 @@ function _scheduleNextAutoDeposit(): void {
       period.toString(),
       callId,
       depositTotalCost.toString(),
+      bookingPeriod.toString(),
+      currentPeriod.toString(),
     ]),
   );
 }

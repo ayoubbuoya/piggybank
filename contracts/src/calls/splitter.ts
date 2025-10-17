@@ -135,8 +135,8 @@ export async function enableAutoDeposit(
   const periods = Math.floor(durationInSeconds / massaPeriodInSeconds);
   console.log(`Duration in periods (${massaPeriodInSeconds}s each):`, periods);
 
-  const cointsToUse = parseMas('0.02');
-  const depositCoins = parseMas('0.1');
+  const cointsToUse = parseMas('0.03');
+  const depositCoins = parseMas('0.3');
 
   const args = new Args()
     .addU256(parseUnits(amountEachPeriod, USDC_DECIMALS))
