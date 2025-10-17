@@ -4,10 +4,9 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import VaultDeposit from "../components/VaultDeposit";
 import VaultWithdraw from "../components/VaultWithdraw";
-import VaultDCA from "../components/VaultDCA";
-import DCAOverview from "../components/DCAOverview";
+import VaultAutoDeposit from "../components/VaultAutoDeposit";
 import { AVAILABLE_TOKENS, TokenSelection } from "../lib/types";
-import { getVaultTokenBalances, getVaultTokenSelections, getUnallocatedUSDC } from "../lib/massa";
+import { getVaultTokenBalances, getVaultTokenSelections } from "../lib/massa";
 
 interface VaultData {
   address: string;
@@ -31,8 +30,7 @@ export default function VaultDetails() {
   const [balancesLoading, setBalancesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'deposit' | 'dca'>('deposit');
-  const [unallocatedUSDC, setUnallocatedUSDC] = useState<string>('0');
+  const [activeTab, setActiveTab] = useState<'deposit' | 'auto-deposit'>('deposit');
 
   useEffect(() => {
     const fetchVaultData = async () => {
@@ -122,14 +120,6 @@ export default function VaultDetails() {
       
       console.log('Token balances received:', balances);
       setTokenBalances(balances);
-
-      // Also fetch unallocated USDC
-      try {
-        const unallocated = await getUnallocatedUSDC(connectedAccount, vault.address);
-        setUnallocatedUSDC(unallocated);
-      } catch (err) {
-        console.error('Error fetching unallocated USDC:', err);
-      }
 
       if (toastId) {
         const nonZeroBalances = Object.values(balances).filter(balance => balance !== '0').length;
@@ -324,62 +314,45 @@ export default function VaultDetails() {
           </button>
         </div>
 
-        {/* DCA Overview */}
-        <DCAOverview 
-          vaultAddress={vault.address} 
-          onViewDetails={() => setActiveTab('dca')}
-        />
-
-        {/* Tabs for Deposit and DCA */}
+        {/* Deposit Section with Tabs */}
         {connectedAccount && (
           <div className="brut-card bg-white p-6">
-            {/* Pending USDC indicator */}
-            {parseFloat(unallocatedUSDC) > 0 && (
-              <div className="mb-4 px-3 py-2 bg-yellow-100 border-2 border-yellow-400 rounded-lg">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-yellow-800">
-                    💰 {unallocatedUSDC} USDC pending
-                  </span>
-                  <span className="text-xs text-yellow-600">
-                    (from DCA)
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Tab Headers */}
-            <div className="flex border-b-2 border-gray-200 mb-4">
+            {/* Tab Navigation - Brutalist Style */}
+            <div className="flex gap-2 mb-6">
               <button
                 onClick={() => setActiveTab('deposit')}
-                className={`flex-1 py-2 px-4 font-bold text-center transition-all ${
+                className={`flex-1 brut-btn ${
                   activeTab === 'deposit'
-                    ? 'border-b-4 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
+                    ? 'bg-lime-300'
+                    : 'bg-gray-200'
                 }`}
               >
-                Deposit
+                💰 MANUAL DEPOSIT
               </button>
               <button
-                onClick={() => setActiveTab('dca')}
-                className={`flex-1 py-2 px-4 font-bold text-center transition-all ${
-                  activeTab === 'dca'
-                    ? 'border-b-4 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
+                onClick={() => setActiveTab('auto-deposit')}
+                className={`flex-1 brut-btn ${
+                  activeTab === 'auto-deposit'
+                    ? 'bg-lime-300'
+                    : 'bg-gray-200'
                 }`}
               >
-                DCA
+                ⚡ AUTO-DEPOSIT
               </button>
             </div>
 
             {/* Tab Content */}
             {activeTab === 'deposit' ? (
-              <VaultDeposit
-                vaultAddress={vault.address}
-                vaultName={vault.name}
-                onSuccess={handleDepositSuccess}
-              />
+              <div>
+                <h3 className="text-lg font-bold mb-4">Deposit to Vault</h3>
+                <VaultDeposit
+                  vaultAddress={vault.address}
+                  vaultName={vault.name}
+                  onSuccess={handleDepositSuccess}
+                />
+              </div>
             ) : (
-              <VaultDCA vaultAddress={vault.address} />
+              <VaultAutoDeposit vaultAddress={vault.address} />
             )}
           </div>
         )}

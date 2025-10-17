@@ -104,9 +104,13 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   const calleeAddress = Context.callee();
   const callerAddress = Context.caller();
 
-  const factoryAddress = Storage.get(FACTORY_ADDRESS_KEY);
+  // Factory address was stored as caller.toString(), retrieve it as string
+  const factoryAddressBytes = Storage.get(FACTORY_ADDRESS_KEY);
+  const factoryAddressString = factoryAddressBytes.length > 0
+    ? String.UTF8.decodeUnsafe(changetype<usize>(factoryAddressBytes), factoryAddressBytes.length)
+    : '';
 
-  const isFromFactory = callerAddress.toString() == factoryAddress;
+  const isFromFactory = callerAddress.toString() == factoryAddressString;
 
   // Do the transfer only if the call is not from the factory (createAndDepositSplitterVault)
   if (!isFromFactory) {
@@ -126,7 +130,7 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
     Storage.get(allTokensAddressesKey),
   );
 
-  const factory = new IFactory(new Address(factoryAddress));
+  const factory = new IFactory(new Address(factoryAddressString));
   const eagleSwapRouterAddress = factory.getEagleSwapRouterAddress();
 
   assert(eagleSwapRouterAddress.length > 0, 'SWAP_ROUTER_NOT_SET');

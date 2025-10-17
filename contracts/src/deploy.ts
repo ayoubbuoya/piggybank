@@ -24,7 +24,7 @@ const contract = await SmartContract.deploy(
   byteCode,
   constructorArgs,
   {
-    coins: Mas.fromString('0.1'),
+    coins: Mas.fromString('50'), // Fund the factory with 50 MAS for auto-deposit operations
     maxGas: 3_900_000_000n, // Manual gas limit to bypass estimation (below MAX_GAS_EXECUTE)
   },
 );

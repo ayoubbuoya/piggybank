@@ -7,6 +7,7 @@ import VaultDetails from "./pages/VaultDetails.tsx";
 import Analytics from "./pages/Analytics.tsx";
 import About from "./pages/About.tsx";
 import Settings from "./pages/Settings.tsx";
+import DCA from "./pages/DCA.tsx";
 import AppLayout from "./components/AppLayout.tsx";
 import NetworkWarningModal from "./components/NetworkWarningModal.tsx";
 import useAccountSync from "./hooks/useAccountSync.tsx";
@@ -23,6 +24,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dca" element={<DCA />} />
           <Route path="/vault/create" element={<CreateVault />} />
           <Route path="/vault/:id" element={<VaultDetails />} />
           <Route path="/analytics" element={<Analytics />} />
