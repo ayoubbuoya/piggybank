@@ -22,6 +22,9 @@ export default function Landing() {
             <Link to="/vault/create" className="brut-btn bg-lime-300">
               Launch Vault
             </Link>
+            <Link to="/dca/create" className="brut-btn bg-blue-300">
+              Create DCA
+            </Link>
             <Link to="/dashboard" className="brut-btn bg-yellow-300">
               View Dashboard
             </Link>
@@ -46,11 +49,11 @@ export default function Landing() {
         <BentoCard title="Autonomous Savings" bg="#FD5A46">
           <p>Set once. Runs forever with Deferred Calls.</p>
         </BentoCard>
-        <BentoCard title="DCA Engine" bg="#84CC16">
-          <p>Deposit USDC and swap into MAS, ETH, BTC at your chosen ratios via EagleFi DEX.</p>
+        <BentoCard title="DCA Strategies" bg="#84CC16">
+          <p>Automate your investments with Dollar Cost Averaging. Buy assets at regular intervals.</p>
         </BentoCard>
-        <BentoCard title="Subscriptions" bg="#F59E0B">
-          <p>On‑chain recurring payments with guaranteed execution.</p>
+        <BentoCard title="Splitter Vaults" bg="#F59E0B">
+          <p>Deposit USDC and automatically split into MAS, ETH, and more via EagleFi DEX.</p>
         </BentoCard>
         <BentoCard title="DeWeb Frontend" bg="#60A5FA">
           <p>Truly unstoppable UI hosted on the blockchain.</p>
