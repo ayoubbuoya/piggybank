@@ -11,7 +11,7 @@ import {
   Web3Provider,
 } from '@massalabs/massa-web3';
 import { TokenWithPercentage } from './structs/TokenWithPercentage';
-
+import { USDC_DECIMALS } from './const';
 
 export async function depositToSplitterVault(
   splitterVaultContract: SmartContract,
@@ -120,4 +120,54 @@ export async function getSplitterCreationTimestamp(
   }
 
   return Number(creationTimestamp);
+}
+
+export async function enableAutoDeposit(
+  splitterVaultContract: SmartContract,
+  amountEachPeriod: string,
+  srcWallet: string,
+  durationInSeconds: number,
+) {
+  console.log('Enabling auto deposit...');
+
+  const massaPeriodInSeconds = 16;
+
+  const periods = Math.floor(durationInSeconds / massaPeriodInSeconds);
+  console.log(`Duration in periods (${massaPeriodInSeconds}s each):`, periods);
+
+  const cointsToUse = parseMas('0.03');
+  const depositCoins = parseMas('0.3');
+
+  const args = new Args()
+    .addU256(parseUnits(amountEachPeriod, USDC_DECIMALS))
+    .addU64(BigInt(periods))
+    .addString(srcWallet)
+    .addU64(cointsToUse)
+    .addU64(depositCoins)
+    .serialize();
+
+  const operation = await splitterVaultContract.call(
+    'enableAutoDeposit',
+    args,
+    {
+      coins: parseMas('20'),
+    },
+  );
+
+  console.log(`Operation ID: ${operation.id}`);
+
+  console.log('Waiting for the operation to be executed...');
+
+  // Wait for the operation to be executed
+  const status = await operation.waitSpeculativeExecution();
+
+  if (status === OperationStatus.SpeculativeSuccess) {
+    console.log('Auto deposit enabled successfully');
+  } else {
+    console.log('Status:', status);
+    // Show speculativ events for debugging
+    const spec_events = await operation.getSpeculativeEvents();
+    console.log('Speculative events:', spec_events);
+    throw new Error('Failed to enable auto deposit');
+  }
 }
