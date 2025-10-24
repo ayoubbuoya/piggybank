@@ -600,3 +600,209 @@ export async function getVaultTokenSelections(
     return [];
   }
 }
+
+// Enable auto deposit for a splitter vault
+export async function enableAutoDeposit(
+  connectedAccount: any,
+  vaultAddress: string,
+  amountEachPeriod: string,
+  intervalInSeconds: number,
+  srcWallet: string,
+  coinsToUse: string = '0.03',
+  depositCoins: string = '0.3'
+): Promise<{ success: boolean; error?: string }> {
+  const toastId = toast.loading('Enabling auto deposit...');
+
+  try {
+    const vaultContract = new SmartContract(connectedAccount, vaultAddress);
+
+    // Convert interval to Massa periods (16 seconds each)
+    // This is the frequency BETWEEN deposits, not total duration
+    const massaPeriodInSeconds = 16;
+    const periods = Math.floor(intervalInSeconds / massaPeriodInSeconds);
+
+    console.log(`Interval: ${intervalInSeconds}s = ${periods} periods between deposits`);
+
+    const args = new Args()
+      .addU256(parseUnits(amountEachPeriod, USDC_DECIMALS))
+      .addU64(BigInt(periods))
+      .addString(srcWallet)
+      .addU64(parseMas(coinsToUse))
+      .addU64(parseMas(depositCoins))
+      .serialize();
+
+    toast.update(toastId, {
+      render: 'Waiting for transaction confirmation...',
+      isLoading: true
+    });
+
+    const operation = await vaultContract.call('enableAutoDeposit', args, {
+      coins: parseMas('20'), // Coins for deferred calls
+    });
+
+    const status = await operation.waitSpeculativeExecution();
+
+    if (status === OperationStatus.SpeculativeSuccess) {
+      toast.update(toastId, {
+        render: '🔄 Auto deposit enabled successfully!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: true };
+    } else {
+      const events = await operation.getSpeculativeEvents();
+      console.log('Enable auto deposit failed, events:', events);
+
+      toast.update(toastId, {
+        render: 'Failed to enable auto deposit',
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: false, error: 'Failed to enable auto deposit' };
+    }
+  } catch (error) {
+    console.error('Error enabling auto deposit:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    toast.update(toastId, {
+      render: `Error: ${errorMessage}`,
+      type: 'error',
+      isLoading: false,
+      autoClose: 5000,
+    });
+
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Disable auto deposit for a splitter vault
+export async function disableAutoDeposit(
+  connectedAccount: any,
+  vaultAddress: string
+): Promise<{ success: boolean; error?: string }> {
+  const toastId = toast.loading('Disabling auto deposit...');
+
+  try {
+    const vaultContract = new SmartContract(connectedAccount, vaultAddress);
+
+    const args = new Args().serialize();
+
+    toast.update(toastId, {
+      render: 'Waiting for transaction confirmation...',
+      isLoading: true
+    });
+
+    const operation = await vaultContract.call('disableAutoDeposit', args, {
+      coins: parseMas('0.1'),
+    });
+
+    const status = await operation.waitSpeculativeExecution();
+
+    if (status === OperationStatus.SpeculativeSuccess) {
+      toast.update(toastId, {
+        render: '🛑 Auto deposit disabled successfully',
+        type: 'success',
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: true };
+    } else {
+      const events = await operation.getSpeculativeEvents();
+      console.log('Disable auto deposit failed, events:', events);
+
+      toast.update(toastId, {
+        render: 'Failed to disable auto deposit',
+        type: 'error',
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: false, error: 'Failed to disable auto deposit' };
+    }
+  } catch (error) {
+    console.error('Error disabling auto deposit:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    toast.update(toastId, {
+      render: `Error: ${errorMessage}`,
+      type: 'error',
+      isLoading: false,
+      autoClose: 5000,
+    });
+
+    return { success: false, error: errorMessage };
+  }
+}
+
+// Check if auto deposit is enabled for a vault
+export async function isAutoDepositEnabled(
+  connectedAccount: any,
+  vaultAddress: string
+): Promise<boolean> {
+  try {
+    console.log('Checking auto deposit status for vault:', vaultAddress);
+
+    // Check if storage key exists first
+    // The key in the contract is 'adek' not 'autoDepositEnabled'
+    const keys = await connectedAccount.getStorageKeys(
+      vaultAddress,
+      'adek',
+      false
+    );
+
+    console.log('Storage keys found:', keys);
+
+    if (!keys || keys.length === 0) {
+      console.log('No adek key found');
+      return false;
+    }
+
+    // Read the storage value
+    const values = await connectedAccount.readStorage(
+      vaultAddress,
+      ['adek'],
+      false
+    );
+
+    console.log('Storage values:', values);
+
+    if (!values || values.length === 0) {
+      console.log('No storage values returned');
+      return false;
+    }
+
+    const value = values[0];
+    console.log('First value:', value);
+
+    // Handle different response formats
+    let dataBytes: Uint8Array;
+    if (value instanceof Uint8Array) {
+      dataBytes = value;
+    } else if (value && typeof value === 'object') {
+      dataBytes = value.final_value || value.candidate_value || value;
+    } else {
+      console.log('Value is not in expected format');
+      return false;
+    }
+
+    console.log('Data bytes:', dataBytes);
+
+    // Check if the byte value is 1 (enabled)
+    if (dataBytes instanceof Uint8Array && dataBytes.length > 0) {
+      const isEnabled = dataBytes[0] === 1;
+      console.log('Auto deposit enabled:', isEnabled);
+      return isEnabled;
+    }
+
+    console.log('Data bytes not valid');
+    return false;
+  } catch (error) {
+    console.error('Error checking auto deposit status:', error);
+    return false;
+  }
+}
