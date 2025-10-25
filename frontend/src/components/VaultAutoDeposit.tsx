@@ -12,22 +12,11 @@ interface VaultAutoDepositProps {
   vaultName: string;
 }
 
-// Time period options
-// Issue: Contract searches only ONE slot for available gas (findCheapestSlot with same start/end)
-// Far future slots may not have 900M gas available, causing booking to fail
-// Shorter intervals are more reliable as near-term slots have predictable gas availability
-const TIME_PERIODS = [
-  { label: "1 Week", value: 604800 }, // 37800 periods - may fail if slot lacks gas
-  { label: "3 Days", value: 259200 }, // 16200 periods
-  { label: "1 Day", value: 86400 }, // 5400 periods
-  { label: "12 Hours", value: 43200 }, // 2700 periods
-  { label: "6 Hours", value: 21600 }, // 1350 periods
-  { label: "3 Hours", value: 10800 }, // 675 periods
-  { label: "1 Hour", value: 3600 }, // 225 periods
-  { label: "30 Minutes", value: 1800 }, // 112 periods
-  { label: "15 Minutes", value: 900 }, // 56 periods
-  { label: "5 Minutes", value: 300 }, // 18 periods - most reliable
-];
+// Fixed time period - ONLY 1 week is supported due to Massa blockchain's deferred calls limitation
+// Period value: 37675 Massa periods
+// When multiplied by 16 seconds per period: 602,800 seconds (approximately 1 week minus 1 second)
+const FIXED_AUTO_DEPOSIT_PERIOD = 37675; // Massa periods
+const FIXED_AUTO_DEPOSIT_INTERVAL = 602800; // seconds (37675 * 16)
 
 export default function VaultAutoDeposit({
   vaultAddress,
@@ -40,7 +29,6 @@ export default function VaultAutoDeposit({
 
   // Form state
   const [amountPerDeposit, setAmountPerDeposit] = useState("");
-  const [selectedPeriod, setSelectedPeriod] = useState(0); // Index of TIME_PERIODS
   const [userBalance, setUserBalance] = useState("0");
 
   // Check auto deposit status on mount
@@ -104,12 +92,12 @@ export default function VaultAutoDeposit({
         return;
       }
 
-      // Then enable auto deposit
+      // Then enable auto deposit with fixed 1-week interval
       const result = await enableAutoDeposit(
         connectedAccount,
         vaultAddress,
         amountPerDeposit,
-        TIME_PERIODS[selectedPeriod].value,
+        FIXED_AUTO_DEPOSIT_INTERVAL,
         connectedAccount.address
       );
 
@@ -206,32 +194,24 @@ export default function VaultAutoDeposit({
             )}
           </div>
 
-          <div>
-            <label className="block mb-2">
-              <span className="font-bold text-sm">Deposit Frequency</span>
-              <select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(parseInt(e.target.value))}
-                className="mt-1 w-full border-3 border-ink-950 rounded-2xl p-3"
-              >
-                {TIME_PERIODS.map((period, index) => (
-                  <option key={index} value={index}>
-                    {period.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="text-xs text-amber-600 mt-1">
-              ⚠️ Longer intervals may fail if future slots lack available gas.
-              Shorter = more reliable.
+          <div className="brut-card bg-gradient-to-r from-lime-100 to-green-100 p-4 border-2 border-lime-400">
+            <p className="font-bold text-sm mb-2">📅 Deposit Schedule</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Frequency:</span>
+              <span className="bg-lime-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
+                Every 1 Week
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mt-2">
+              Fixed interval due to Massa blockchain's deferred calls
+              limitation. Period value: 37675 (≈ 1 week minus 1 second)
             </p>
           </div>
 
           <div className="brut-card bg-blue-100 p-3">
             <p className="text-xs font-bold mb-1">Summary</p>
             <p className="text-xs">
-              • Deposit {amountPerDeposit || "0"} USDC every{" "}
-              {TIME_PERIODS[selectedPeriod].label.toLowerCase()}
+              • Deposit {amountPerDeposit || "0"} USDC every week
             </p>
             <p className="text-xs">• Requires ~20 MAS for deferred calls</p>
             <p className="text-xs">• Can be disabled at any time</p>
