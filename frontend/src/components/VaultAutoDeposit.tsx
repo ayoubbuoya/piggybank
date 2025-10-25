@@ -10,6 +10,7 @@ import {
 interface VaultAutoDepositProps {
   vaultAddress: string;
   vaultName: string;
+  onSuccess?: () => void;
 }
 
 // Fixed time period - ONLY 1 week is supported due to Massa blockchain's deferred calls limitation
@@ -20,6 +21,8 @@ const FIXED_AUTO_DEPOSIT_INTERVAL = 602800; // seconds (37675 * 16)
 
 export default function VaultAutoDeposit({
   vaultAddress,
+  vaultName,
+  onSuccess,
 }: VaultAutoDepositProps) {
   const { connectedAccount } = useAccountStore();
   const [loading, setLoading] = useState(false);
@@ -105,6 +108,7 @@ export default function VaultAutoDeposit({
         setAutoDepositActive(true);
         setShowConfig(false);
         setAmountPerDeposit("");
+        if (onSuccess) onSuccess();
       }
     } catch (error) {
       console.error("Error enabling auto deposit:", error);
@@ -123,6 +127,7 @@ export default function VaultAutoDeposit({
 
       if (result.success) {
         setAutoDepositActive(false);
+        if (onSuccess) onSuccess();
       }
     } catch (error) {
       console.error("Error disabling auto deposit:", error);
@@ -137,32 +142,47 @@ export default function VaultAutoDeposit({
 
   if (checkingStatus) {
     return (
-      <div className="brut-card bg-white p-6">
+      <div className="text-center py-4">
         <p className="text-gray-600">Checking auto deposit status...</p>
       </div>
     );
   }
 
   return (
-    <div className="brut-card bg-white p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold">🔄 Auto Deposit</h3>
-        {autoDepositActive && (
-          <div className="brut-btn bg-lime-300 text-xs">Active</div>
-        )}
-      </div>
+    <div className="space-y-4">
+      {/* Status Display */}
+      {autoDepositActive && (
+        <div className="brut-card bg-gradient-to-r from-green-100 to-lime-100 p-4 border-2 border-green-400">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <span className="text-2xl">✅</span>
+              <span className="font-bold text-green-900">
+                Auto Deposit Active
+              </span>
+            </div>
+          </div>
+          <p className="text-sm text-gray-700">
+            Your vault is set up for automatic weekly deposits.
+          </p>
+        </div>
+      )}
 
       {!autoDepositActive && !showConfig && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-600">
-            Set up automatic recurring deposits to your vault. Deposits will be
-            executed automatically at your chosen interval.
-          </p>
+          <div className="brut-card bg-blue-50 p-4">
+            <p className="text-sm text-gray-700 mb-2">
+              💡 <strong>Auto Deposit</strong> automatically deposits USDC to
+              your vault every week using Massa's deferred calls.
+            </p>
+            <p className="text-xs text-gray-600">
+              Set it once and let it run autonomously on-chain.
+            </p>
+          </div>
           <button
             onClick={() => setShowConfig(true)}
-            className="w-full brut-btn bg-lime-300"
+            className="w-full brut-btn bg-lime-300 font-bold"
           >
-            Enable Auto Deposit
+            ⚡ Enable Auto Deposit
           </button>
         </div>
       )}
@@ -237,28 +257,35 @@ export default function VaultAutoDeposit({
       )}
 
       {autoDepositActive && (
-        <div className="space-y-3">
-          <div className="brut-card bg-lime-100 p-3">
-            <p className="text-sm font-bold mb-1">✅ Auto Deposit Active</p>
-            <p className="text-xs text-gray-600">
-              Automatic deposits are running for this vault. Deposits will be
-              executed at the configured interval.
+        <div className="space-y-4">
+          <div className="brut-card bg-yellow-50 p-4 border-2 border-yellow-400">
+            <p className="text-sm font-bold mb-2 text-yellow-900">
+              ⚠️ Important Reminders
             </p>
+            <ul className="text-xs text-gray-700 space-y-1">
+              <li>• Maintain sufficient USDC balance for upcoming deposits</li>
+              <li>• Ensure your wallet has ~20 MAS for deferred call fees</li>
+              <li>• Deposits execute automatically every week</li>
+              <li>• You can disable this feature at any time</li>
+            </ul>
           </div>
 
-          <div className="brut-card bg-yellow-100 p-3">
-            <p className="text-xs font-bold mb-1">⚠️ Important</p>
-            <p className="text-xs text-gray-600">
-              Ensure you maintain sufficient USDC balance for upcoming deposits.
-            </p>
+          <div className="brut-card bg-gradient-to-r from-lime-100 to-green-100 p-4 border-2 border-lime-400">
+            <p className="font-bold text-sm mb-2">📅 Current Schedule</p>
+            <div className="flex items-center justify-between">
+              <span className="text-sm">Frequency:</span>
+              <span className="bg-lime-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
+                Every 1 Week
+              </span>
+            </div>
           </div>
 
           <button
             onClick={handleDisableAutoDeposit}
-            className="w-full brut-btn bg-red-300 border-red-500"
+            className="w-full brut-btn bg-red-300 border-red-500 font-bold"
             disabled={loading}
           >
-            {loading ? "Disabling..." : "Disable Auto Deposit"}
+            {loading ? "Disabling..." : "🛑 Disable Auto Deposit"}
           </button>
         </div>
       )}

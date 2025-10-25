@@ -48,19 +48,28 @@ export default function CreateVault() {
 
   const isValidPercentages = totalPercentage === 100;
   const hasSelectedTokens = tokens.some((token) => token.isSelected);
+  const selectedTokenCount = tokens.filter((token) => token.isSelected).length;
+  const MAX_TOKENS = 2; // Limit due to event limits
 
   const handleTokenToggle = (index: number) => {
-    setTokens((prev) =>
-      prev.map((token, i) =>
+    setTokens((prev) => {
+      const token = prev[index];
+
+      // If trying to select a new token and already at max limit, prevent selection
+      if (!token.isSelected && selectedTokenCount >= MAX_TOKENS) {
+        return prev;
+      }
+
+      return prev.map((token, i) =>
         i === index
           ? {
               ...token,
               isSelected: !token.isSelected,
-              percentage: token.isSelected ? 0 : 25,
+              percentage: token.isSelected ? 0 : 50, // Changed to 50 for 2 tokens
             }
           : token
-      )
-    );
+      );
+    });
   };
 
   const handlePercentageChange = (index: number, percentage: number) => {
@@ -212,80 +221,119 @@ export default function CreateVault() {
             </button>
           </div>
 
-          <div className="space-y-3">
-            {tokens.map((token, index) => (
-              <div key={token.address} className="brut-card bg-gray-50 p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <label className="cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={token.isSelected}
-                        onChange={() => handleTokenToggle(index)}
-                        className="sr-only peer"
-                      />
-                      <div
-                        className={`w-6 h-6 border-3 border-ink-950 rounded-lg transition-all ${
-                          token.isSelected ? "bg-lime-300" : "bg-white"
-                        }`}
-                      >
-                        {token.isSelected && (
-                          <svg
-                            className="w-full h-full p-0.5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={4}
-                              d="M5 13l4 4L19 7"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                    </label>
-                    <img
-                      src={token.logo}
-                      alt={token.symbol}
-                      className="w-8 h-8 rounded-full"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                      }}
-                    />
-                    <div>
-                      <div className="font-bold flex items-center gap-1">
-                        {token.symbol}
-                      </div>
-                      <div className="text-sm text-gray-600">{token.name}</div>
-                      <div className="text-xs text-gray-500 font-mono">
-                        {token.address.slice(0, 8)}...{token.address.slice(-6)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {token.isSelected && (
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={token.percentage}
-                        onChange={(e) =>
-                          handlePercentageChange(
-                            index,
-                            parseInt(e.target.value) || 0
-                          )
-                        }
-                        className="w-20 border-2 border-ink-950 rounded-lg p-2 text-center"
-                      />
-                      <span className="font-bold">%</span>
-                    </div>
-                  )}
-                </div>
+          {/* Warning Message */}
+          <div className="brut-card bg-yellow-50 border-2 border-yellow-400 p-3">
+            <div className="flex items-start gap-2">
+              <span className="text-xl">⚠️</span>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-yellow-900 mb-1">
+                  Token Selection Limit
+                </p>
+                <p className="text-xs text-yellow-800">
+                  Due to event limits, you can currently select a maximum of{" "}
+                  <strong>2 tokens</strong>. We're working on fixing this
+                  limitation soon. Thank you for your patience!
+                </p>
               </div>
-            ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {tokens.map((token, index) => {
+              const isDisabled =
+                !token.isSelected && selectedTokenCount >= MAX_TOKENS;
+
+              return (
+                <div
+                  key={token.address}
+                  className={`brut-card p-4 ${
+                    isDisabled ? "bg-gray-100 opacity-60" : "bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <label
+                        className={
+                          isDisabled ? "cursor-not-allowed" : "cursor-pointer"
+                        }
+                      >
+                        <input
+                          type="checkbox"
+                          checked={token.isSelected}
+                          onChange={() => handleTokenToggle(index)}
+                          disabled={isDisabled}
+                          className="sr-only peer"
+                        />
+                        <div
+                          className={`w-6 h-6 border-3 border-ink-950 rounded-lg transition-all ${
+                            token.isSelected
+                              ? "bg-lime-300"
+                              : isDisabled
+                              ? "bg-gray-200"
+                              : "bg-white"
+                          }`}
+                        >
+                          {token.isSelected && (
+                            <svg
+                              className="w-full h-full p-0.5"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={4}
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                      </label>
+                      <img
+                        src={token.logo}
+                        alt={token.symbol}
+                        className="w-8 h-8 rounded-full"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                      <div>
+                        <div className="font-bold flex items-center gap-1">
+                          {token.symbol}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {token.name}
+                        </div>
+                        <div className="text-xs text-gray-500 font-mono">
+                          {token.address.slice(0, 8)}...
+                          {token.address.slice(-6)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {token.isSelected && (
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={token.percentage}
+                          onChange={(e) =>
+                            handlePercentageChange(
+                              index,
+                              parseInt(e.target.value) || 0
+                            )
+                          }
+                          className="w-20 border-2 border-ink-950 rounded-lg p-2 text-center"
+                        />
+                        <span className="font-bold">%</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           <div className="brut-card bg-lime-100 p-4">
@@ -467,7 +515,7 @@ export default function CreateVault() {
             parseFloat(autoDepositAmount) > 0 && (
               <div className="brut-card bg-gradient-to-r from-lime-100 to-green-100 p-6 border-2 border-lime-400">
                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                  🔄 Auto Deposit Configuration
+                  Auto Deposit Configuration
                   <span className="text-xs bg-lime-500 text-white px-2 py-1 rounded-full">
                     ENABLED
                   </span>
