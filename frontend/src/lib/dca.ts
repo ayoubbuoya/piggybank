@@ -1,4 +1,4 @@
-import { SmartContract, Args, parseUnits, parseMas, OperationStatus, bytesToStr, MRC20 } from '@massalabs/massa-web3';
+import { SmartContract, Args, ArrayTypes, parseUnits, parseMas, OperationStatus, bytesToStr, MRC20 } from '@massalabs/massa-web3';
 import { toast } from 'react-toastify';
 import {
   DCA,
@@ -10,7 +10,7 @@ import {
   calculateProgress,
   estimateNextExecution
 } from './dca-types';
-import { USDC_DECIMALS, WMAS_DECIMALS, WETH_DECIMALS } from './types';
+import { USDC_DECIMALS, WMAS_DECIMALS, WETH_DECIMALS, WBTC_DECIMALS } from './types';
 
 // Get DCA contract instance
 function getDCAContract(connectedAccount: any): SmartContract {
@@ -28,7 +28,8 @@ function getTokenDecimals(tokenAddress: string): number {
   const decimalsMap: { [key: string]: number } = {
     'AS12N76WPYB3QNYKGhV2jZuQs1djdhNJLQgnm7m52pHWecvvj1fCQ': USDC_DECIMALS, // USDC
     'AS12FW5Rs5YN2zdpEnqwj4iHUUPt9R4Eqjq2qtpJFNKW3mn33RuLU': WMAS_DECIMALS, // WMAS
-    'AS12rcqHGQ3bPPhnjBZsYiANv9TZxYp96M7r49iTMUrX8XCJQ8Wrk': WETH_DECIMALS  // WETH
+    'AS12rcqHGQ3bPPhnjBZsYiANv9TZxYp96M7r49iTMUrX8XCJQ8Wrk': WETH_DECIMALS, // WETH
+    'AS1ZXy3nvqXAMm2w6viAg7frte6cZfJM8hoMvWf4KoKDzvLzYKqE': WBTC_DECIMALS  // WBTC
   };
   return decimalsMap[tokenAddress] || 18; // Default to 18 decimals
 }
@@ -80,7 +81,7 @@ export async function startDCA(
       .addU256(amountInSmallestUnit)
       .addU64(interval)
       .addU64(nbOfDCA)
-      .addArray(tokenPath, 0) // ArrayTypes.STRING = 0
+      .addArray(tokenPath, ArrayTypes.STRING)
       .addU32(threshold)
       .addBool(moreGas)
       .addU64(startIn)
@@ -257,7 +258,7 @@ export async function updateDCA(
       .addU256(amountInSmallestUnit)
       .addU64(interval)
       .addU64(nbOfDCA)
-      .addArray(tokenPath, 0) // ArrayTypes.STRING = 0
+      .addArray(tokenPath, ArrayTypes.STRING)
       .addU32(threshold)
       .addBool(moreGas)
       .serialize();
@@ -348,18 +349,32 @@ export async function getDCA(
 
     const resultArgs = new Args(dataBytes);
 
+    // Read fields in the correct order (matching DUSA SDK)
+    const amountEachDCA = resultArgs.nextU256()!;
+    const intervalInMilliseconds = Number(resultArgs.nextU64()!);
+    const nbOfDCA = Number(resultArgs.nextU64()!);
+    const tokenPath = resultArgs.nextArray(ArrayTypes.STRING) as string[];
+    const threshold = Number(resultArgs.nextU32()!);
+    const moreGas = resultArgs.nextBool()!;
+    const startTime = Number(resultArgs.nextU64()!);
+    const executedCount = Number(resultArgs.nextU64()!);
+    const deferredCallId = resultArgs.nextString()!;
+
+    // DUSA stores interval in milliseconds, convert to seconds for UI
+    const intervalInSeconds = Math.floor(intervalInMilliseconds / 1000);
+
     const dca: DCA = {
       id: Number(dcaId),
-      amountEachDCA: resultArgs.nextU256()!,
-      interval: Number(resultArgs.nextU64()!),
-      nbOfDCA: Number(resultArgs.nextU64()!),
-      tokenPath: resultArgs.nextArray(0) as string[],
-      threshold: Number(resultArgs.nextU32()!),
-      moreGas: resultArgs.nextBool()!,
-      startTime: Number(resultArgs.nextU64()!),
+      amountEachDCA,
+      interval: intervalInSeconds,
+      nbOfDCA,
+      tokenPath,
+      threshold,
+      moreGas,
+      startTime,
       endTime: 0,
-      executedCount: Number(resultArgs.nextU64()!),
-      deferredCallId: resultArgs.nextString()!
+      executedCount,
+      deferredCallId
     };
 
     // Calculate end time (interval is in seconds, need to convert to ms)

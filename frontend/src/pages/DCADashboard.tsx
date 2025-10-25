@@ -23,37 +23,40 @@ export default function DCADashboard() {
 
     let toastId: any = null;
     if (showToast) {
-      toastId = toast.loading('Fetching your DCA strategies...');
+      toastId = toast.loading("Fetching your DCA strategies...");
     }
 
     try {
-      console.log('Fetching DCA strategies...');
-      
+      console.log("Fetching DCA strategies...");
+
       const userDCAs = await getUserDCAs(
         connectedAccount,
         connectedAccount.address
       );
 
-      console.log('DCA strategies received:', userDCAs);
+      console.log("DCA strategies received:", userDCAs);
       setDcas(userDCAs);
 
       if (toastId) {
         toast.update(toastId, {
-          render: `📊 Found ${userDCAs.length} DCA strateg${userDCAs.length === 1 ? 'y' : 'ies'}`,
-          type: 'success',
+          render: `📊 Found ${userDCAs.length} DCA strateg${
+            userDCAs.length === 1 ? "y" : "ies"
+          }`,
+          type: "success",
           isLoading: false,
           autoClose: 3000,
         });
       }
     } catch (err) {
-      console.error('Error fetching DCA strategies:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch DCAs';
+      console.error("Error fetching DCA strategies:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to fetch DCAs";
       setError(errorMessage);
-      
+
       if (toastId) {
         toast.update(toastId, {
           render: `Failed to fetch DCA strategies: ${errorMessage}`,
-          type: 'error',
+          type: "error",
           isLoading: false,
           autoClose: 5000,
         });
@@ -84,16 +87,16 @@ export default function DCADashboard() {
     if (!confirmed) return;
 
     setStoppingId(dcaId);
-    
+
     try {
       const result = await stopDCA(connectedAccount, BigInt(dcaId));
-      
+
       if (result.success) {
         // Refresh the list after stopping
         await fetchUserDCAs();
       }
     } catch (err) {
-      console.error('Error stopping DCA:', err);
+      console.error("Error stopping DCA:", err);
     } finally {
       setStoppingId(null);
     }
@@ -102,39 +105,39 @@ export default function DCADashboard() {
   const getStatusColor = (status: DCAStatus) => {
     switch (status) {
       case DCAStatus.ACTIVE:
-        return 'bg-lime-200 border-lime-500 text-lime-900';
+        return "bg-lime-200 border-lime-500 text-lime-900";
       case DCAStatus.PAUSED:
-        return 'bg-yellow-200 border-yellow-500 text-yellow-900';
+        return "bg-yellow-200 border-yellow-500 text-yellow-900";
       case DCAStatus.COMPLETED:
-        return 'bg-blue-200 border-blue-500 text-blue-900';
+        return "bg-blue-200 border-blue-500 text-blue-900";
       case DCAStatus.STOPPED:
-        return 'bg-red-200 border-red-500 text-red-900';
+        return "bg-red-200 border-red-500 text-red-900";
       default:
-        return 'bg-gray-200 border-gray-500 text-gray-900';
+        return "bg-gray-200 border-gray-500 text-gray-900";
     }
   };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return new Date(timestamp).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const formatNextExecution = (timestamp?: number) => {
-    if (!timestamp) return 'N/A';
+    if (!timestamp) return "N/A";
     const now = Date.now();
     const diff = timestamp - now;
-    
-    if (diff < 0) return 'Soon';
-    
+
+    if (diff < 0) return "Soon";
+
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(hours / 24);
-    
+
     if (days > 0) return `in ${days}d`;
     if (hours > 0) return `in ${hours}h`;
-    return 'Soon';
+    return "Soon";
   };
 
   if (!connectedAccount) {
@@ -143,7 +146,8 @@ export default function DCADashboard() {
         <div className="brut-card bg-yellow-100 p-6 text-center">
           <h2 className="text-xl font-bold mb-2">Connect Your Wallet</h2>
           <p className="text-gray-700">
-            Please connect your Massa wallet to view and manage your DCA strategies.
+            Please connect your Massa wallet to view and manage your DCA
+            strategies.
           </p>
         </div>
       </div>
@@ -187,8 +191,8 @@ export default function DCADashboard() {
         <div className="brut-card bg-white p-8 text-center">
           <h2 className="text-xl font-bold mb-4">No DCA Strategies Yet</h2>
           <p className="text-gray-600 mb-4">
-            You haven't created any DCA strategies yet. Start automating your investments 
-            by creating your first DCA strategy!
+            You haven't created any DCA strategies yet. Start automating your
+            investments by creating your first DCA strategy!
           </p>
           <Link to="/dca/create" className="brut-btn bg-lime-300">
             Create Your First DCA Strategy
@@ -199,23 +203,27 @@ export default function DCADashboard() {
           {/* Stats Overview */}
           <div className="grid md:grid-cols-4 gap-4">
             <div className="brut-card bg-lime-100 p-4">
-              <p className="text-sm font-bold text-gray-600">Total Strategies</p>
+              <p className="text-sm font-bold text-gray-600">
+                Total Strategies
+              </p>
               <p className="text-3xl font-black">{dcas.length}</p>
             </div>
             <div className="brut-card bg-green-100 p-4">
               <p className="text-sm font-bold text-gray-600">Active</p>
               <p className="text-3xl font-black">
-                {dcas.filter(d => d.status === DCAStatus.ACTIVE).length}
+                {dcas.filter((d) => d.status === DCAStatus.ACTIVE).length}
               </p>
             </div>
             <div className="brut-card bg-blue-100 p-4">
               <p className="text-sm font-bold text-gray-600">Completed</p>
               <p className="text-3xl font-black">
-                {dcas.filter(d => d.status === DCAStatus.COMPLETED).length}
+                {dcas.filter((d) => d.status === DCAStatus.COMPLETED).length}
               </p>
             </div>
             <div className="brut-card bg-yellow-100 p-4">
-              <p className="text-sm font-bold text-gray-600">Total Executions</p>
+              <p className="text-sm font-bold text-gray-600">
+                Total Executions
+              </p>
               <p className="text-3xl font-black">
                 {dcas.reduce((sum, d) => sum + d.executedCount, 0)}
               </p>
@@ -225,10 +233,7 @@ export default function DCADashboard() {
           {/* DCA Strategies List */}
           <div className="grid md:grid-cols-2 gap-6">
             {dcas.map((dca) => (
-              <div
-                key={dca.id}
-                className="brut-card p-6 bg-white relative"
-              >
+              <div key={dca.id} className="brut-card p-6 bg-white relative">
                 <Link
                   to={`/dca/${dca.id}`}
                   className="block hover:translate-y-[-2px] transition-transform"
@@ -240,15 +245,23 @@ export default function DCADashboard() {
                       </h3>
                       <span className="text-xs text-gray-500">#{dca.id}</span>
                     </div>
-                    <span className={`brut-btn text-xs py-1 px-3 ${getStatusColor(dca.status)}`}>
+                    <span
+                      className={`brut-btn text-xs py-1 px-3 ${getStatusColor(
+                        dca.status
+                      )}`}
+                    >
                       {dca.status}
                     </span>
                   </div>
-                  
+
                   <div className="space-y-2 mb-4">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Amount per execution:</span>
-                      <span className="font-bold">{dca.amountEachDCAFormatted} {dca.fromToken}</span>
+                      <span className="text-gray-600">
+                        Amount per execution:
+                      </span>
+                      <span className="font-bold">
+                        {dca.amountEachDCAFormatted} {dca.fromToken}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Interval:</span>
@@ -256,7 +269,9 @@ export default function DCADashboard() {
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Progress:</span>
-                      <span className="font-bold">{dca.executedCount} / {dca.nbOfDCA}</span>
+                      <span className="font-bold">
+                        {dca.executedCount} / {dca.nbOfDCA}
+                      </span>
                     </div>
                   </div>
 
@@ -277,9 +292,13 @@ export default function DCADashboard() {
                   <div className="border-t pt-3 mt-3 flex justify-between items-center">
                     <div className="text-xs text-gray-600">
                       <div>Started: {formatDate(dca.startTime)}</div>
-                      {dca.status === DCAStatus.ACTIVE && dca.estimatedNextExecution && (
-                        <div>Next: {formatNextExecution(dca.estimatedNextExecution)}</div>
-                      )}
+                      {dca.status === DCAStatus.ACTIVE &&
+                        dca.estimatedNextExecution && (
+                          <div>
+                            Next:{" "}
+                            {formatNextExecution(dca.estimatedNextExecution)}
+                          </div>
+                        )}
                     </div>
                     <div className="flex gap-2">
                       <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
@@ -295,7 +314,7 @@ export default function DCADashboard() {
                 </Link>
 
                 {/* Stop Button - Only show for Active or Paused DCAs */}
-                {(dca.status === DCAStatus.ACTIVE || dca.status === DCAStatus.PAUSED) && (
+                {/* {(dca.status === DCAStatus.ACTIVE || dca.status === DCAStatus.PAUSED) && (
                   <div className="mt-4 pt-3 border-t">
                     <button
                       onClick={(e) => handleStopDCA(dca.id, e)}
@@ -305,7 +324,7 @@ export default function DCADashboard() {
                       {stoppingId === dca.id ? '⏳ Stopping...' : '🛑 Stop DCA Strategy'}
                     </button>
                   </div>
-                )}
+                )} */}
               </div>
             ))}
           </div>
@@ -318,8 +337,13 @@ export default function DCADashboard() {
           <ul className="text-sm space-y-1">
             <li>• DCA strategies execute automatically at set intervals</li>
             <li>• You can stop or update any strategy at any time</li>
-            <li>• Make sure you maintain sufficient token balance for all executions</li>
-            <li>• Completed strategies can be viewed for historical reference</li>
+            <li>
+              • Make sure you maintain sufficient token balance for all
+              executions
+            </li>
+            <li>
+              • Completed strategies can be viewed for historical reference
+            </li>
             <li>• Gas fees are paid automatically from your MAS balance</li>
           </ul>
         </div>

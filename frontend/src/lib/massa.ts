@@ -8,6 +8,7 @@ import {
   USDC_TOKEN_ADDRESS,
   WMAS_TOKEN_ADDRESS,
   WETH_TOKEN_ADDRESS,
+  WBTC_TOKEN_ADDRESS,
   BASE_TOKEN_ADDRESS
 } from './types';
 
@@ -376,6 +377,8 @@ export async function getVaultTokenBalances(
           decimals = 6; // USDC uses 6 decimals
         } else if (tokenAddress === WETH_TOKEN_ADDRESS) {
           decimals = 18; // WETH uses 18 decimals
+        } else if (tokenAddress === WBTC_TOKEN_ADDRESS) {
+          decimals = 8; // WBTC uses 8 decimals
         }
 
         console.log(`Using ${decimals} decimals for token ${tokenAddress}`);
