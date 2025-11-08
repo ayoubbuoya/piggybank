@@ -1,6 +1,7 @@
 import { Args, stringToBytes } from '@massalabs/as-types';
 import { Address, call, Storage } from '@massalabs/massa-as-sdk';
 import { IMRC20 } from './IMRC20';
+import { PairInformation } from '../structs/dusa/PairInfo';
 
 /// @dev The fee parameters that are used to calculate fees
 export const FEES_PARAMETERS = stringToBytes('FEES_PARAMETERS');
@@ -27,5 +28,10 @@ export class IDusaPair {
 
   getTokenY(): IMRC20 {
     return new IMRC20(new Address(Storage.getOf(this._origin, TOKEN_Y)));
+  }
+
+  getPairInformation(): PairInformation {
+    const res = call(this._origin, 'getPairInformation', new Args(), 0);
+    return new Args(res).nextSerializable<PairInformation>().unwrap();
   }
 }
