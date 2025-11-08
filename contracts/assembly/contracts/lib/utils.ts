@@ -35,7 +35,7 @@ export function generateSplitterUserKey(
 export function arrayToString(arr: u256[]): string {
   let result = '[';
   for (let i = 0; i < arr.length; i++) {
-    result += u256ToString(arr[i]);
+    result += arr[i].toString();
     if (i < arr.length - 1) {
       result += ', ';
     }
