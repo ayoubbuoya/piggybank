@@ -1,4 +1,4 @@
-import { Args, stringToBytes, u8toByte } from '@massalabs/as-types';
+import { Args, stringToBytes, u64ToBytes, u8toByte } from '@massalabs/as-types';
 import { Address, Context, Storage } from '@massalabs/massa-as-sdk';
 import { ReentrancyGuard } from './lib/ReentrancyGuard';
 import { _setOwner } from './lib/ownership-internal';
@@ -7,10 +7,12 @@ import { IMRC20 } from './interfaces/IMRC20';
 
 // Storage Keys
 export const PAIR_ADDRESS_KEY = 'pa';
+export const PAIR_BIN_STEP_KEY: StaticArray<u8> = stringToBytes('pbs');
 export const PAIR_TOKEN_X_KEY = 'ptx';
 export const PAIR_TOKEN_Y_KEY = 'pty';
 export const PAIR_TOKEN_X_DECIMALS_KEY: StaticArray<u8> = stringToBytes('ptxd');
 export const PAIR_TOKEN_Y_DECIMALS_KEY: StaticArray<u8> = stringToBytes('ptyd');
+export const INTERVALS_MS_KEY: StaticArray<u8> = stringToBytes('ims');
 
 export function constructor(binaryArgs: StaticArray<u8>): void {
   // This line is important. It ensures that this function can't be called in the future.
@@ -22,6 +24,8 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   const pairAddress = args
     .nextString()
     .expect('pairAddress argument is missing');
+
+  const intervalsMs = args.nextU64().expect('intervalsMs argument is missing');
 
   // Get Pair X and Y tokens
   const pair = new IDusaPair(new Address(pairAddress));
@@ -47,11 +51,14 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   Storage.set(PAIR_TOKEN_X_DECIMALS_KEY, u8toByte(tokenXDecimals));
   Storage.set(PAIR_TOKEN_Y_DECIMALS_KEY, u8toByte(tokenYDecimals));
 
+  // Store the intervals in milliseconds
+  Storage.set(INTERVALS_MS_KEY, u64ToBytes(intervalsMs));
+
   // Initialize the reentrancy guard
   ReentrancyGuard.__ReentrancyGuard_init();
 }
 
-export async function deposit(binaryArgs: StaticArray<u8>): void {
+export function deposit(binaryArgs: StaticArray<u8>): void {
   ReentrancyGuard.nonReentrant();
 
   const args = new Args(binaryArgs);
@@ -67,4 +74,26 @@ export async function deposit(binaryArgs: StaticArray<u8>): void {
 
 export function getPairAddress(): StaticArray<u8> {
   return stringToBytes(Storage.get(PAIR_ADDRESS_KEY));
+}
+
+export function getIntervalsMs(): StaticArray<u8> {
+  return Storage.get(INTERVALS_MS_KEY);
+}
+
+export function getTokenXAddress(): StaticArray<u8> {
+  return stringToBytes(Storage.get(PAIR_TOKEN_X_KEY));
+}
+
+export function getTokenYAddress(): StaticArray<u8> {
+  return stringToBytes(Storage.get(PAIR_TOKEN_Y_KEY));
+}
+
+export function getTokenXDecimals(): u8 {
+  const bytes = Storage.get(PAIR_TOKEN_X_DECIMALS_KEY);
+  return bytes[0];
+}
+
+export function getTokenYDecimals(): u8 {
+  const bytes = Storage.get(PAIR_TOKEN_Y_DECIMALS_KEY);
+  return bytes[0];
 }
