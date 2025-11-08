@@ -1,9 +1,27 @@
-import { Args, stringToBytes, u64ToBytes, u8toByte } from '@massalabs/as-types';
-import { Address, Context, Storage } from '@massalabs/massa-as-sdk';
+import {
+  Args,
+  bytesToU64,
+  stringToBytes,
+  u64ToBytes,
+  u8toByte,
+} from '@massalabs/as-types';
+import {
+  Address,
+  Context,
+  createEvent,
+  generateEvent,
+  Storage,
+} from '@massalabs/massa-as-sdk';
 import { ReentrancyGuard } from './lib/ReentrancyGuard';
 import { _setOwner } from './lib/ownership-internal';
 import { IDusaPair } from './interfaces/IDusaPair';
 import { IMRC20 } from './interfaces/IMRC20';
+import { u256 } from 'as-bignum/assembly';
+import { PairInformation } from './structs/dusa/PairInfo';
+import { LiquidityParameters } from './structs/dusa/LiquidityParameters';
+import { SafeMath256 } from './lib/safeMath';
+import { PRECISION } from './lib/constants';
+import { arrayToString } from './lib/utils';
 
 // Storage Keys
 export const PAIR_ADDRESS_KEY = 'pa';
@@ -65,6 +83,106 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
 
   const amountX = args.nextU256().expect('amountX argument is missing');
   const amountY = args.nextU256().expect('amountY argument is missing');
+
+  // End the non-reentrant block
+  ReentrancyGuard.endNonReentrant();
+}
+
+export function addLiquidity(binaryArgs: StaticArray<u8>): void {
+  ReentrancyGuard.nonReentrant();
+
+  const args = new Args(binaryArgs);
+
+  // Amount of bins to add liquidity to on each side of the current bin
+  const binsRange: u64 = args.nextU64().expect('binsRange argument is missing');
+  const amountX = args.nextU256().expect('amountX argument is missing');
+  const amountY = args.nextU256().expect('amountY argument is missing');
+
+  const pairAddress = Storage.get(PAIR_ADDRESS_KEY);
+
+  const pair = new IDusaPair(new Address(pairAddress));
+
+  const pairInfo: PairInformation = pair.getPairInformation();
+
+  const activeBinId: u32 = pairInfo.activeId;
+
+  let deltaIds: i64[] = new Array<i64>();
+  let distributionsX: u256[] = new Array<u256>();
+  let distributionsY: u256[] = new Array<u256>();
+
+  // Calculate each bin disribtuion percentage
+  const eachBinDistributionPercentage: u256 = SafeMath256.div(
+    PRECISION,
+    u256.fromU64(binsRange),
+  );
+
+  // Construct deltaIds by pushing the positive and negative values of each bin
+  for (let i: u64 = 1; i < binsRange; i++) {
+    // Loop for negative deltas
+    deltaIds.push(-i64(i));
+    // Add distribution for negative delta
+    distributionsY.push(eachBinDistributionPercentage);
+    // Add distribution for positive delta
+    distributionsX.push(u256.Zero);
+  }
+
+  deltaIds.push(0);
+  distributionsX.push(eachBinDistributionPercentage);
+  distributionsY.push(eachBinDistributionPercentage);
+
+  for (let i: u64 = 1; i < binsRange; i++) {
+    // Loop for positive deltas
+    deltaIds.push(i);
+    // Add distribution for positive delta
+    distributionsX.push(eachBinDistributionPercentage);
+    // Add distribution for negative delta
+    distributionsY.push(u256.Zero);
+  }
+
+  assert(
+    distributionsX.length == deltaIds.length,
+    'distributionsX and deltaIds length mismatch',
+  );
+
+  assert(
+    distributionsY.length == deltaIds.length,
+    'distributionsY and deltaIds length mismatch',
+  );
+
+  // Log distributions and deltaIds
+
+  generateEvent(
+    createEvent('DISTRIBUTIONS_AND_DELTAS', [
+      arrayToString(distributionsX),
+      arrayToString(distributionsY),
+      deltaIds.toString(),
+    ]),
+  );
+
+  // Get pair tokens and bin step
+  const tokenX: IMRC20 = pair.getTokenX();
+  const tokenY: IMRC20 = pair.getTokenY();
+  const binStep: u64 = bytesToU64(Storage.get(PAIR_BIN_STEP_KEY));
+
+  const currentContractAddress = Context.callee();
+
+  // Construct liq parameter
+  const liqParams = new LiquidityParameters(
+    tokenX,
+    tokenY,
+    binStep,
+    amountX,
+    amountY,
+    u256.Zero,
+    u256.Zero,
+    activeBinId,
+    5,
+    deltaIds,
+    distributionsX,
+    distributionsY,
+    currentContractAddress,
+    u64.MAX_VALUE,
+  );
 
   // End the non-reentrant block
   ReentrancyGuard.endNonReentrant();
