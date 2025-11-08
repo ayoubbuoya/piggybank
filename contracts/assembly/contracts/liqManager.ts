@@ -22,6 +22,7 @@ import { LiquidityParameters } from './structs/dusa/LiquidityParameters';
 import { SafeMath256 } from './lib/safeMath';
 import { PRECISION } from './lib/constants';
 import { arrayToString } from './lib/utils';
+import { FeeParameters } from './structs/dusa/FeeParameters';
 
 // Storage Keys
 export const PAIR_ADDRESS_KEY = 'pa';
@@ -55,11 +56,19 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   const tokenXDecimals = tokenX.decimals();
   const tokenYDecimals = tokenY.decimals();
 
+  // Get token bin step
+  const feeParameters: FeeParameters = pair.feeParameters();
+
+  const binStep: u64 = feeParameters.binStep;
+
   // Set Owner of the contract
   _setOwner(Context.caller().toString());
 
   // Store the pair address
   Storage.set(PAIR_ADDRESS_KEY, pairAddress);
+
+  // Store the pair bin step
+  Storage.set(PAIR_BIN_STEP_KEY, u64ToBytes(binStep));
 
   // Store the pair tokens
   Storage.set(PAIR_TOKEN_X_KEY, tokenX._origin.toString());
@@ -183,6 +192,9 @@ export function addLiquidity(binaryArgs: StaticArray<u8>): void {
     currentContractAddress,
     u64.MAX_VALUE,
   );
+
+
+  
 
   // End the non-reentrant block
   ReentrancyGuard.endNonReentrant();
