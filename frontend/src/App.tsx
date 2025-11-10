@@ -10,6 +10,8 @@ import Settings from "./pages/Settings.tsx";
 
 import DCADashboard from "./pages/DCADashboard.tsx";
 import DCADetails from "./pages/DCADetails.tsx";
+import CreateMultiSigVault from "./pages/CreateMultiSigVault.tsx";
+import MultiSigVaultDetails from "./pages/MultiSigVaultDetails.tsx";
 import AppLayout from "./components/AppLayout.tsx";
 import NetworkWarningModal from "./components/NetworkWarningModal.tsx";
 import useAccountSync from "./hooks/useAccountSync.tsx";
@@ -29,6 +31,8 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/vault/create" element={<CreateVault />} />
           <Route path="/vault/:id" element={<VaultDetails />} />
+          <Route path="/vault/multisig/create" element={<CreateMultiSigVault />} />
+          <Route path="/vault/multisig/:id" element={<MultiSigVaultDetails />} />
           <Route path="/dca/create" element={<CreateDCA />} />
           <Route path="/dca/dashboard" element={<DCADashboard />} />
           <Route path="/dca/:id" element={<DCADetails />} />

@@ -18,9 +18,12 @@ export default function Landing() {
             Contracts. Deposit USDC and automatically split it across multiple tokens.
             No bots. No keepers. Just code that runs.
           </p>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex gap-3 flex-wrap">
             <Link to="/vault/create" className="brut-btn bg-lime-300">
               Launch Vault
+            </Link>
+            <Link to="/vault/multisig/create" className="brut-btn bg-purple-300">
+              🔐 Multi-Sig
             </Link>
             <Link to="/dca/create" className="brut-btn bg-blue-300">
               Create DCA
@@ -49,14 +52,14 @@ export default function Landing() {
         <BentoCard title="Autonomous Savings" bg="#FD5A46">
           <p>Set once. Runs forever with Deferred Calls.</p>
         </BentoCard>
+        <BentoCard title="Multi-Sig Vaults" bg="#A78BFA">
+          <p>🔐 Save together with family or team. Requires multiple approvals for withdrawals.</p>
+        </BentoCard>
         <BentoCard title="DCA Strategies" bg="#84CC16">
           <p>Automate your investments with Dollar Cost Averaging. Buy assets at regular intervals.</p>
         </BentoCard>
         <BentoCard title="Splitter Vaults" bg="#F59E0B">
           <p>Deposit USDC and automatically split into MAS, ETH, and more via EagleFi DEX.</p>
-        </BentoCard>
-        <BentoCard title="DeWeb Frontend" bg="#60A5FA">
-          <p>Truly unstoppable UI hosted on the blockchain.</p>
         </BentoCard>
       </section>
 

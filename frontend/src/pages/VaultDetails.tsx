@@ -13,6 +13,15 @@ import {
   getAutoDepositConfig,
   isAutoDepositEnabled,
 } from "../lib/massa";
+import {
+  isMultiSigVault,
+  getVaultName,
+  getMultiSigVaultInfo,
+  getPendingProposals,
+  getProposal,
+  MultiSigVaultInfo,
+  Proposal
+} from "../lib/multiSigVault";
 
 interface VaultData {
   address: string;
@@ -37,6 +46,10 @@ export default function VaultDetails() {
   const [error, setError] = useState<string | null>(null);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [showAutoDepositModal, setShowAutoDepositModal] = useState(false);
+  const [isMultiSig, setIsMultiSig] = useState(false);
+  const [checkingMultiSig, setCheckingMultiSig] = useState(true);
+  const [multiSigInfo, setMultiSigInfo] = useState<MultiSigVaultInfo | null>(null);
+  const [pendingProposals, setPendingProposals] = useState<Proposal[]>([]);
 
   // Auto deposit state
   const [autoDepositActive, setAutoDepositActive] = useState(false);
@@ -54,6 +67,15 @@ export default function VaultDetails() {
 
       try {
         console.log("Fetching real vault data for:", id);
+
+        // Fetch vault name from blockchain
+        let vaultName = "Splitter Vault";
+        try {
+          vaultName = await getVaultName(connectedAccount, id);
+          console.log("Vault name from blockchain:", vaultName);
+        } catch (error) {
+          console.error("Error fetching vault name:", error);
+        }
 
         // Fetch real token allocation and creation timestamp
         let tokens: TokenSelection[] = [];
@@ -75,7 +97,7 @@ export default function VaultDetails() {
           console.log("No tokens found in vault storage, using fallback");
           setVault({
             address: id,
-            name: "Splitter Vault",
+            name: vaultName,
             tokens: AVAILABLE_TOKENS.map((token, index) => ({
               ...token,
               percentage: index === 0 ? 50 : index === 1 ? 30 : 20,
@@ -92,7 +114,7 @@ export default function VaultDetails() {
 
           setVault({
             address: id,
-            name: "Splitter Vault",
+            name: vaultName,
             tokens: tokens || [],
             balance: "0.00",
             status: "Active",
@@ -109,6 +131,51 @@ export default function VaultDetails() {
 
     fetchVaultData();
   }, [id, connectedAccount]);
+
+  // Check if vault is multi-sig and fetch multi-sig info
+  useEffect(() => {
+    const checkMultiSig = async () => {
+      if (!vault || !connectedAccount) {
+        setCheckingMultiSig(false);
+        return;
+      }
+
+      try {
+        const isMS = await isMultiSigVault(connectedAccount, vault.address);
+        setIsMultiSig(isMS);
+        console.log(`Vault ${vault.address} is multi-sig:`, isMS);
+
+        if (isMS) {
+          // Fetch multi-sig vault info
+          const info = await getMultiSigVaultInfo(connectedAccount, vault.address);
+          setMultiSigInfo(info);
+          console.log('Multi-sig vault info:', info);
+
+          // Fetch pending proposals
+          const proposalIds = await getPendingProposals(connectedAccount, vault.address);
+          console.log('Pending proposal IDs:', proposalIds);
+
+          // Fetch details for each proposal
+          const proposals: Proposal[] = [];
+          for (const proposalId of proposalIds) {
+            const proposal = await getProposal(connectedAccount, vault.address, proposalId);
+            if (proposal) {
+              proposals.push(proposal);
+            }
+          }
+          setPendingProposals(proposals);
+          console.log('Pending proposals:', proposals);
+        }
+      } catch (error) {
+        console.error("Error checking multi-sig status:", error);
+        setIsMultiSig(false);
+      } finally {
+        setCheckingMultiSig(false);
+      }
+    };
+
+    checkMultiSig();
+  }, [vault, connectedAccount]);
 
   // Check auto deposit status
   useEffect(() => {
@@ -225,10 +292,31 @@ export default function VaultDetails() {
     }, 2000); // Wait 2 seconds for the transaction to be processed
   };
 
-  const handleWithdrawSuccess = () => {
-    // Refresh token balances after successful withdrawal
-    console.log("Withdrawal successful, refreshing token balances...");
+  const handleWithdrawSuccess = async () => {
+    // Refresh token balances after successful withdrawal/proposal
+    console.log("Withdrawal/Proposal successful, refreshing data...");
     setShowWithdrawModal(false); // Close modal on success
+
+    // If multi-sig, refresh proposals
+    if (isMultiSig && vault && connectedAccount) {
+      setTimeout(async () => {
+        try {
+          const proposalIds = await getPendingProposals(connectedAccount, vault.address);
+          const proposals: Proposal[] = [];
+          for (const proposalId of proposalIds) {
+            const proposal = await getProposal(connectedAccount, vault.address, proposalId);
+            if (proposal) {
+              proposals.push(proposal);
+            }
+          }
+          setPendingProposals(proposals);
+          console.log('Refreshed proposals:', proposals);
+        } catch (error) {
+          console.error('Error refreshing proposals:', error);
+        }
+      }, 2000);
+    }
+
     setTimeout(() => {
       fetchTokenBalances(false); // Don't show toast for auto-refresh after withdrawal
     }, 2000); // Wait 2 seconds for the transaction to be processed
@@ -249,16 +337,55 @@ export default function VaultDetails() {
               <div className="flex items-center space-x-2">
                 <div className="brut-btn bg-lime-300">{vault.status}</div>
 
-                {connectedAccount && hasTokenBalances && (
+                {connectedAccount && hasTokenBalances && !checkingMultiSig && (
                   <button
                     onClick={() => setShowWithdrawModal(true)}
                     className="brut-btn bg-red-300 border-red-500"
                   >
-                    Withdraw
+                    {isMultiSig ? "Propose Withdrawal" : "Withdraw"}
                   </button>
                 )}
               </div>
             </div>
+
+            {/* Multi-Sig Info */}
+            {isMultiSig && multiSigInfo && (
+              <div className="mb-4 brut-card bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-2 border-blue-400">
+                <h3 className="font-bold text-sm text-blue-900 mb-3">
+                  🔐 Multi-Signature Vault
+                </h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-gray-600 text-xs">Signers</p>
+                    <p className="font-bold text-blue-900">{multiSigInfo.signers.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 text-xs">Threshold</p>
+                    <p className="font-bold text-blue-900">
+                      {multiSigInfo.threshold} of {multiSigInfo.signers.length}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 text-xs">Total Proposals</p>
+                    <p className="font-bold text-blue-900">{multiSigInfo.proposalCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 text-xs">Pending</p>
+                    <p className="font-bold text-blue-900">{pendingProposals.length}</p>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <p className="text-gray-600 text-xs mb-1">Signers:</p>
+                  <div className="space-y-1">
+                    {multiSigInfo.signers.map((signer, index) => (
+                      <p key={index} className="font-mono text-xs bg-white px-2 py-1 rounded border border-blue-200">
+                        {signer}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Auto Deposit Countdown - Compact Display */}
             {!checkingAutoDeposit && autoDepositActive && (
@@ -458,6 +585,96 @@ export default function VaultDetails() {
             </div>
           )}
 
+          {/* Pending Proposals for Multi-Sig Vaults */}
+          {isMultiSig && pendingProposals.length > 0 && (
+            <div className="brut-card bg-white p-6">
+              <h3 className="text-lg font-bold mb-4">
+                📋 Pending Withdrawal Proposals ({pendingProposals.length})
+              </h3>
+              <div className="space-y-4">
+                {pendingProposals.map((proposal) => {
+                  const tokenInfo = AVAILABLE_TOKENS.find(t => t.address === proposal.token);
+                  const readableAmount = tokenInfo
+                    ? (Number(proposal.amount) / Math.pow(10, tokenInfo.decimals)).toFixed(4)
+                    : proposal.amount;
+
+                  return (
+                    <div
+                      key={proposal.id}
+                      className="border-2 border-blue-300 rounded-lg p-4 bg-blue-50"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <p className="font-bold text-sm">Proposal #{proposal.id}</p>
+                          <p className="text-xs text-gray-600">
+                            Created {new Date(proposal.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-600">Approvals</p>
+                          <p className="font-bold text-blue-900">
+                            {proposal.approvals.length} / {multiSigInfo?.threshold || 0}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Token:</span>
+                          <span className="font-bold">{tokenInfo?.symbol || 'Unknown'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Amount:</span>
+                          <span className="font-bold">{readableAmount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Recipient:</span>
+                          <span className="font-mono text-xs">{proposal.recipient.slice(0, 10)}...</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Proposer:</span>
+                          <span className="font-mono text-xs">{proposal.proposer.slice(0, 10)}...</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-600 mb-1">Approved by:</p>
+                        <div className="space-y-1">
+                          {proposal.approvals.map((signer, index) => (
+                            <p key={index} className="font-mono text-xs bg-white px-2 py-1 rounded border border-blue-200">
+                              {signer}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+
+                      {connectedAccount && multiSigInfo?.signers.includes(connectedAccount.address) &&
+                       !proposal.approvals.includes(connectedAccount.address) && (
+                        <button
+                          className="mt-3 w-full brut-btn bg-green-300 border-green-500 text-sm"
+                          onClick={() => {
+                            // TODO: Implement approve proposal
+                            toast.info('Approve proposal functionality coming soon!');
+                          }}
+                        >
+                          ✅ Approve Proposal
+                        </button>
+                      )}
+
+                      {proposal.approvals.length >= (multiSigInfo?.threshold || 0) && (
+                        <div className="mt-3 bg-green-100 border border-green-400 rounded p-2">
+                          <p className="text-xs text-green-800 font-bold">
+                            ✅ Threshold reached! This proposal can be executed.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Vault Info */}
           <div className="brut-card bg-white p-6">
             <h3 className="text-lg font-bold mb-3">How It Works</h3>
@@ -486,7 +703,7 @@ export default function VaultDetails() {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-black">
-                    Withdraw from {vault.name}
+                    {isMultiSig ? `Propose Withdrawal from ${vault.name}` : `Withdraw from ${vault.name}`}
                   </h2>
                   <button
                     onClick={() => setShowWithdrawModal(false)}
@@ -496,12 +713,34 @@ export default function VaultDetails() {
                   </button>
                 </div>
 
-                <VaultWithdraw
-                  vaultAddress={vault.address}
-                  vaultTokens={vault.tokens}
-                  tokenBalances={tokenBalances}
-                  onSuccess={handleWithdrawSuccess}
-                />
+                {isMultiSig ? (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 border border-blue-300 rounded-lg p-4">
+                      <p className="text-sm text-blue-900 font-bold mb-2">
+                        🔐 Multi-Signature Vault
+                      </p>
+                      <p className="text-xs text-blue-800">
+                        This is a multi-sig vault. Withdrawals require approval from multiple signers.
+                        Create a proposal below, and other signers can approve it.
+                      </p>
+                    </div>
+                    <VaultWithdraw
+                      vaultAddress={vault.address}
+                      vaultTokens={vault.tokens}
+                      tokenBalances={tokenBalances}
+                      onSuccess={handleWithdrawSuccess}
+                      isMultiSig={true}
+                    />
+                  </div>
+                ) : (
+                  <VaultWithdraw
+                    vaultAddress={vault.address}
+                    vaultTokens={vault.tokens}
+                    tokenBalances={tokenBalances}
+                    onSuccess={handleWithdrawSuccess}
+                    isMultiSig={false}
+                  />
+                )}
               </div>
             </div>
           </div>

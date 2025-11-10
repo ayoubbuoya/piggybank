@@ -28,6 +28,7 @@ function getFactoryContract(connectedAccount: any): SmartContract {
 export async function createSplitterVault(
   connectedAccount: any,
   tokensWithPercentage: TokenWithPercentage[],
+  vaultName: string,
   initialCoins: string = '0.1'
 ): Promise<{ success: boolean; vaultAddress?: string; error?: string }> {
   const toastId = toast.loading('Creating splitter vault...');
@@ -40,11 +41,16 @@ export async function createSplitterVault(
     const args = new Args()
       .addSerializableObjectArray(tokensWithPercentage)
       .addU64(parseMas(initialCoins))
+      .addString(vaultName)
       .serialize();
 
     // Call the smart contract function
+    // Need to send enough coins for:
+    // - Operation fee (~0.1 MAS)
+    // - Factory to deploy new vault contract (~0.1 MAS)
+    // - Initial coins for the vault (initialCoins parameter)
     const operation = await contract.call('createSplitterVault', args, {
-      coins: parseMas('5'), // Operation fee
+      coins: parseMas('10'), // Enough for operation fee + vault deployment + initial vault coins
     });
 
     console.log(`Operation ID: ${operation.id}`);
