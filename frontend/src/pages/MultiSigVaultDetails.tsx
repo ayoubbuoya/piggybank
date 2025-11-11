@@ -44,20 +44,41 @@ export default function MultiSigVaultDetails() {
       // Get vault info
       const info = await getMultiSigVaultInfo(connectedAccount, id);
       console.log("Vault info loaded:", info);
+      console.log("Total proposal count from vault:", info?.proposalCount);
       setVaultInfo(info);
 
       // Get pending proposals
       const pendingIds = await getPendingProposals(connectedAccount, id);
-      console.log("Pending proposal IDs:", pendingIds);
+      console.log("Pending proposal IDs from contract:", pendingIds);
 
-      const proposalDetails = await Promise.all(
-        pendingIds.map((proposalId) =>
-          getProposal(connectedAccount, id, proposalId)
-        )
+      if (pendingIds.length === 0) {
+        console.log("No pending proposals found");
+        setProposals([]);
+        return;
+      }
+
+      // Try to fetch each proposal with error handling
+      const proposalDetails: (Proposal | null)[] = [];
+      for (const proposalId of pendingIds) {
+        console.log(`\nAttempting to fetch proposal ${proposalId}...`);
+        const proposal = await getProposal(connectedAccount, id, proposalId);
+        if (proposal) {
+          console.log(`✓ Successfully loaded proposal ${proposalId}`);
+          proposalDetails.push(proposal);
+        } else {
+          console.warn(
+            `✗ Failed to load proposal ${proposalId} - it may have been executed`
+          );
+        }
+      }
+
+      const validProposals = proposalDetails.filter(
+        (p) => p !== null
+      ) as Proposal[];
+      console.log(
+        `\nLoaded ${validProposals.length} valid proposals out of ${pendingIds.length} pending IDs`
       );
-
-      console.log("Proposal details:", proposalDetails);
-      setProposals(proposalDetails.filter((p) => p !== null) as Proposal[]);
+      setProposals(validProposals);
     } catch (error) {
       console.error("Error loading vault data:", error);
       toast.error("Failed to load vault data");
@@ -153,6 +174,12 @@ export default function MultiSigVaultDetails() {
   const userAddress = connectedAccount?.address || "";
   const isUserSigner = isSigner(userAddress);
 
+  console.log("Current user check:", {
+    userAddress,
+    isUserSigner,
+    vaultSigners: vaultInfo?.signers,
+  });
+
   return (
     <div className="space-y-6">
       {/* Vault Header */}
@@ -245,9 +272,18 @@ export default function MultiSigVaultDetails() {
         {proposals.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-600">No pending proposals</p>
-            <p className="text-xs text-gray-500 mt-2">
-              Check browser console for debugging info
-            </p>
+            {vaultInfo && vaultInfo.proposalCount > 0 && (
+              <div className="mt-4 brut-card bg-yellow-50 p-4 max-w-md mx-auto">
+                <p className="text-sm text-gray-700">
+                  💡 The vault has {vaultInfo.proposalCount} total proposal(s),
+                  but none are currently pending.
+                </p>
+                <p className="text-xs text-gray-500 mt-2">
+                  They may have been executed or the blockchain state is
+                  syncing. Try refreshing in a few seconds.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -255,6 +291,13 @@ export default function MultiSigVaultDetails() {
               const userHasApproved = hasApproved(proposal, userAddress);
               const approvalsNeeded =
                 vaultInfo.threshold - proposal.approvals.length;
+
+              console.log(`Proposal ${proposal.id} check:`, {
+                userAddress,
+                isUserSigner,
+                userHasApproved,
+                approvals: proposal.approvals,
+              });
 
               return (
                 <div key={proposal.id} className="brut-card bg-yellow-50 p-4">
@@ -273,7 +316,16 @@ export default function MultiSigVaultDetails() {
 
                   <div className="brut-card bg-white p-3 mb-3">
                     <p className="text-sm font-semibold">
-                      Withdraw {formatUnits(BigInt(proposal.amount), 6)}{" "}
+                      Withdraw{" "}
+                      {(() => {
+                        const tokenInfo = AVAILABLE_TOKENS.find(
+                          (t) =>
+                            t.address.toLowerCase() ===
+                            proposal.token.toLowerCase()
+                        );
+                        const decimals = tokenInfo?.decimals || 6;
+                        return formatUnits(BigInt(proposal.amount), decimals);
+                      })()}{" "}
                       {getTokenSymbol(proposal.token)}
                     </p>
                     <p className="text-xs text-gray-600 mt-1">

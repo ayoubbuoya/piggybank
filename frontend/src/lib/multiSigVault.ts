@@ -48,6 +48,31 @@ export interface MultiSigVaultInfo {
   proposalCount: number;
 }
 
+/**
+ * Debug function to check proposal existence
+ */
+export async function debugProposal(
+  connectedAccount: any,
+  vaultAddress: string,
+  proposalId: number
+): Promise<void> {
+  try {
+    const vaultContract = getMultiSigVaultContract(connectedAccount, vaultAddress);
+    console.log(`\n=== DEBUG: Checking proposal ${proposalId} ===`);
+
+    const args = new Args().addU32(BigInt(proposalId)).serialize();
+    const result = await vaultContract.read('getProposal', args);
+
+    console.log('Result:', result);
+    console.log('Has error:', !!result.info?.error);
+    console.log('Error message:', result.info?.error);
+    console.log('Value length:', result.value?.length);
+    console.log('=== END DEBUG ===\n');
+  } catch (error) {
+    console.error('Debug error:', error);
+  }
+}
+
 export interface Proposal {
   id: number;
   proposer: string;
@@ -139,8 +164,15 @@ export async function getPendingProposals(
     const args = new Args(result.value);
 
     // The contract returns an array of u32, we need to use nextArray with ArrayTypes.U32
-    const proposalIds = args.nextArray(ArrayTypes.U32) as number[];
-    return proposalIds;
+    const proposalIds = args.nextArray(ArrayTypes.U32) as (number | bigint)[];
+
+    // Convert BigInt to number if needed
+    const normalizedIds = proposalIds.map(id =>
+      typeof id === 'bigint' ? Number(id) : id
+    );
+
+    console.log('Pending proposal IDs (normalized):', normalizedIds);
+    return normalizedIds;
   } catch (error) {
     console.error('Error fetching pending proposals:', error);
     return [];
@@ -158,10 +190,24 @@ export async function getProposal(
   try {
     const vaultContract = getMultiSigVaultContract(connectedAccount, vaultAddress);
 
+    console.log(`Fetching proposal ${proposalId} from vault ${vaultAddress}`);
     const args = new Args().addU32(BigInt(proposalId)).serialize();
     const result = await vaultContract.read('getProposal', args);
 
     console.log('Raw proposal result:', result);
+
+    // Check if there's an error in the result
+    if (result.info && result.info.error) {
+      console.error('Smart contract error:', result.info.error);
+      return null;
+    }
+
+    // Check if we have data
+    if (!result.value || result.value.length === 0) {
+      console.error('Empty response from getProposal');
+      return null;
+    }
+
     console.log('Proposal value bytes:', result.value);
 
     const resultArgs = new Args(result.value);
@@ -208,8 +254,9 @@ export async function getProposal(
       executed,
       approvals,
     };
-  } catch (error) {
-    console.error('Error fetching proposal:', error);
+  } catch (error: any) {
+    console.error(`Error fetching proposal ${proposalId}:`, error);
+    console.error('Error details:', error.message);
     return null;
   }
 }

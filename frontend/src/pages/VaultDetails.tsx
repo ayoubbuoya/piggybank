@@ -20,8 +20,10 @@ import {
   getPendingProposals,
   getProposal,
   MultiSigVaultInfo,
-  Proposal
+  Proposal,
 } from "../lib/multiSigVault";
+import { shortenAddress } from "../lib/utils";
+import { formatUnits } from "@massalabs/massa-web3";
 
 interface VaultData {
   address: string;
@@ -48,7 +50,9 @@ export default function VaultDetails() {
   const [showAutoDepositModal, setShowAutoDepositModal] = useState(false);
   const [isMultiSig, setIsMultiSig] = useState(false);
   const [checkingMultiSig, setCheckingMultiSig] = useState(true);
-  const [multiSigInfo, setMultiSigInfo] = useState<MultiSigVaultInfo | null>(null);
+  const [multiSigInfo, setMultiSigInfo] = useState<MultiSigVaultInfo | null>(
+    null
+  );
   const [pendingProposals, setPendingProposals] = useState<Proposal[]>([]);
 
   // Auto deposit state
@@ -147,24 +151,34 @@ export default function VaultDetails() {
 
         if (isMS) {
           // Fetch multi-sig vault info
-          const info = await getMultiSigVaultInfo(connectedAccount, vault.address);
+          const info = await getMultiSigVaultInfo(
+            connectedAccount,
+            vault.address
+          );
           setMultiSigInfo(info);
-          console.log('Multi-sig vault info:', info);
+          console.log("Multi-sig vault info:", info);
 
           // Fetch pending proposals
-          const proposalIds = await getPendingProposals(connectedAccount, vault.address);
-          console.log('Pending proposal IDs:', proposalIds);
+          const proposalIds = await getPendingProposals(
+            connectedAccount,
+            vault.address
+          );
+          console.log("Pending proposal IDs:", proposalIds);
 
           // Fetch details for each proposal
           const proposals: Proposal[] = [];
           for (const proposalId of proposalIds) {
-            const proposal = await getProposal(connectedAccount, vault.address, proposalId);
+            const proposal = await getProposal(
+              connectedAccount,
+              vault.address,
+              proposalId
+            );
             if (proposal) {
               proposals.push(proposal);
             }
           }
           setPendingProposals(proposals);
-          console.log('Pending proposals:', proposals);
+          console.log("Pending proposals:", proposals);
         }
       } catch (error) {
         console.error("Error checking multi-sig status:", error);
@@ -301,18 +315,25 @@ export default function VaultDetails() {
     if (isMultiSig && vault && connectedAccount) {
       setTimeout(async () => {
         try {
-          const proposalIds = await getPendingProposals(connectedAccount, vault.address);
+          const proposalIds = await getPendingProposals(
+            connectedAccount,
+            vault.address
+          );
           const proposals: Proposal[] = [];
           for (const proposalId of proposalIds) {
-            const proposal = await getProposal(connectedAccount, vault.address, proposalId);
+            const proposal = await getProposal(
+              connectedAccount,
+              vault.address,
+              proposalId
+            );
             if (proposal) {
               proposals.push(proposal);
             }
           }
           setPendingProposals(proposals);
-          console.log('Refreshed proposals:', proposals);
+          console.log("Refreshed proposals:", proposals);
         } catch (error) {
-          console.error('Error refreshing proposals:', error);
+          console.error("Error refreshing proposals:", error);
         }
       }, 2000);
     }
@@ -349,7 +370,7 @@ export default function VaultDetails() {
             </div>
 
             {/* Multi-Sig Info */}
-            {isMultiSig && multiSigInfo && (
+            {/* {isMultiSig && multiSigInfo && (
               <div className="mb-4 brut-card bg-gradient-to-r from-blue-50 to-indigo-50 p-4 border-2 border-blue-400">
                 <h3 className="font-bold text-sm text-blue-900 mb-3">
                   🔐 Multi-Signature Vault
@@ -357,7 +378,9 @@ export default function VaultDetails() {
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-gray-600 text-xs">Signers</p>
-                    <p className="font-bold text-blue-900">{multiSigInfo.signers.length}</p>
+                    <p className="font-bold text-blue-900">
+                      {multiSigInfo.signers.length}
+                    </p>
                   </div>
                   <div>
                     <p className="text-gray-600 text-xs">Threshold</p>
@@ -367,25 +390,32 @@ export default function VaultDetails() {
                   </div>
                   <div>
                     <p className="text-gray-600 text-xs">Total Proposals</p>
-                    <p className="font-bold text-blue-900">{multiSigInfo.proposalCount}</p>
+                    <p className="font-bold text-blue-900">
+                      {multiSigInfo.proposalCount}
+                    </p>
                   </div>
                   <div>
                     <p className="text-gray-600 text-xs">Pending</p>
-                    <p className="font-bold text-blue-900">{pendingProposals.length}</p>
+                    <p className="font-bold text-blue-900">
+                      {pendingProposals.length}
+                    </p>
                   </div>
                 </div>
                 <div className="mt-3">
                   <p className="text-gray-600 text-xs mb-1">Signers:</p>
                   <div className="space-y-1">
                     {multiSigInfo.signers.map((signer, index) => (
-                      <p key={index} className="font-mono text-xs bg-white px-2 py-1 rounded border border-blue-200">
+                      <p
+                        key={index}
+                        className="font-mono text-xs bg-white px-2 py-1 rounded border border-blue-200"
+                      >
                         {signer}
                       </p>
                     ))}
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Auto Deposit Countdown - Compact Display */}
             {!checkingAutoDeposit && autoDepositActive && (
@@ -429,7 +459,7 @@ export default function VaultDetails() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-bold text-sm text-green-900 mb-1">
-                      🚀 Automate Your Deposits
+                      Automate Your Deposits
                     </p>
                     <p className="text-xs text-gray-600">
                       Set up weekly recurring deposits to this vault
@@ -588,85 +618,196 @@ export default function VaultDetails() {
           {/* Pending Proposals for Multi-Sig Vaults */}
           {isMultiSig && pendingProposals.length > 0 && (
             <div className="brut-card bg-white p-6">
-              <h3 className="text-lg font-bold mb-4">
+              <h3 className="text-xl font-bold mb-4">
                 📋 Pending Withdrawal Proposals ({pendingProposals.length})
               </h3>
               <div className="space-y-4">
                 {pendingProposals.map((proposal) => {
-                  const tokenInfo = AVAILABLE_TOKENS.find(t => t.address === proposal.token);
-                  const readableAmount = tokenInfo
-                    ? (Number(proposal.amount) / Math.pow(10, tokenInfo.decimals)).toFixed(4)
-                    : proposal.amount;
+                  const tokenInfo = AVAILABLE_TOKENS.find(
+                    (t) =>
+                      t.address.toLowerCase() === proposal.token.toLowerCase()
+                  );
+                  const decimals = tokenInfo?.decimals || 6;
+                  const readableAmount = formatUnits(
+                    BigInt(proposal.amount),
+                    decimals
+                  );
+
+                  const copyToClipboard = (text: string, label: string) => {
+                    navigator.clipboard.writeText(text);
+                    toast.success(`${label} copied!`);
+                  };
 
                   return (
                     <div
                       key={proposal.id}
-                      className="border-2 border-blue-300 rounded-lg p-4 bg-blue-50"
+                      className="brut-card bg-yellow-50 p-5"
                     >
-                      <div className="flex justify-between items-start mb-3">
+                      <div className="flex justify-between items-start mb-4">
                         <div>
-                          <p className="font-bold text-sm">Proposal #{proposal.id}</p>
-                          <p className="text-xs text-gray-600">
-                            Created {new Date(proposal.timestamp).toLocaleString()}
+                          <h4 className="font-bold text-lg">
+                            Proposal #{proposal.id}
+                          </h4>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {new Date(proposal.timestamp).toLocaleString()}
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-600">Approvals</p>
-                          <p className="font-bold text-blue-900">
-                            {proposal.approvals.length} / {multiSigInfo?.threshold || 0}
-                          </p>
+                        <span className="brut-btn bg-white text-xs py-1 px-3">
+                          {proposal.approvals.length}/
+                          {multiSigInfo?.threshold || 0}
+                        </span>
+                      </div>
+
+                      <div className="brut-card bg-white p-4 mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-600">
+                            Withdraw
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {tokenInfo?.logo && (
+                              <img
+                                src={tokenInfo.logo}
+                                alt={tokenInfo.symbol}
+                                className="w-5 h-5 rounded-full"
+                              />
+                            )}
+                            <span className="font-bold text-lg">
+                              {readableAmount} {tokenInfo?.symbol || "Unknown"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 text-sm mt-3 pt-3 border-t">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">To:</span>
+                            <button
+                              onClick={() =>
+                                copyToClipboard(proposal.recipient, "Recipient")
+                              }
+                              className="font-mono text-xs hover:text-blue-600 flex items-center gap-1"
+                              title="Click to copy"
+                            >
+                              {shortenAddress(proposal.recipient, 6)}
+                              <span className="text-gray-400">📋</span>
+                            </button>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-600">Proposed by:</span>
+                            <button
+                              onClick={() =>
+                                copyToClipboard(proposal.proposer, "Proposer")
+                              }
+                              className="font-mono text-xs hover:text-blue-600 flex items-center gap-1"
+                              title="Click to copy"
+                            >
+                              {shortenAddress(proposal.proposer, 6)}
+                              <span className="text-gray-400">📋</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Token:</span>
-                          <span className="font-bold">{tokenInfo?.symbol || 'Unknown'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Amount:</span>
-                          <span className="font-bold">{readableAmount}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Recipient:</span>
-                          <span className="font-mono text-xs">{proposal.recipient.slice(0, 10)}...</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Proposer:</span>
-                          <span className="font-mono text-xs">{proposal.proposer.slice(0, 10)}...</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-3">
-                        <p className="text-xs text-gray-600 mb-1">Approved by:</p>
-                        <div className="space-y-1">
+                      <div className="mb-3">
+                        <p className="text-xs font-semibold text-gray-600 mb-2">
+                          Approvals ({proposal.approvals.length}):
+                        </p>
+                        <div className="flex -space-x-2">
                           {proposal.approvals.map((signer, index) => (
-                            <p key={index} className="font-mono text-xs bg-white px-2 py-1 rounded border border-blue-200">
-                              {signer}
-                            </p>
+                            <div
+                              key={index}
+                              className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-lime-400 border-2 border-white flex items-center justify-center text-white text-xs font-bold"
+                              title={signer}
+                            >
+                              ✓
+                            </div>
                           ))}
                         </div>
                       </div>
 
-                      {connectedAccount && multiSigInfo?.signers.includes(connectedAccount.address) &&
-                       !proposal.approvals.includes(connectedAccount.address) && (
-                        <button
-                          className="mt-3 w-full brut-btn bg-green-300 border-green-500 text-sm"
-                          onClick={() => {
-                            // TODO: Implement approve proposal
-                            toast.info('Approve proposal functionality coming soon!');
-                          }}
-                        >
-                          ✅ Approve Proposal
-                        </button>
-                      )}
+                      <div className="flex items-center justify-between">
+                        {connectedAccount &&
+                          multiSigInfo?.signers.includes(
+                            connectedAccount.address
+                          ) &&
+                          !proposal.approvals.includes(
+                            connectedAccount.address
+                          ) && (
+                            <button
+                              className="brut-btn bg-lime-300 flex-1"
+                              onClick={async () => {
+                                if (!vault || !connectedAccount) return;
 
-                      {proposal.approvals.length >= (multiSigInfo?.threshold || 0) && (
-                        <div className="mt-3 bg-green-100 border border-green-400 rounded p-2">
-                          <p className="text-xs text-green-800 font-bold">
-                            ✅ Threshold reached! This proposal can be executed.
+                                const { approveProposal } = await import(
+                                  "../lib/multiSigVault"
+                                );
+                                const result = await approveProposal(
+                                  connectedAccount,
+                                  vault.address,
+                                  proposal.id
+                                );
+
+                                if (result.success) {
+                                  // Refresh proposals
+                                  const { getPendingProposals, getProposal } =
+                                    await import("../lib/multiSigVault");
+                                  const pendingIds = await getPendingProposals(
+                                    connectedAccount,
+                                    vault.address
+                                  );
+                                  const proposalDetails = await Promise.all(
+                                    pendingIds.map((proposalId) =>
+                                      getProposal(
+                                        connectedAccount,
+                                        vault.address,
+                                        proposalId
+                                      )
+                                    )
+                                  );
+                                  setPendingProposals(
+                                    proposalDetails.filter(
+                                      (p) => p !== null
+                                    ) as Proposal[]
+                                  );
+                                }
+                              }}
+                            >
+                              Approve Proposal
+                            </button>
+                          )}
+
+                        {connectedAccount &&
+                          proposal.approvals.includes(
+                            connectedAccount.address
+                          ) && (
+                            <span className="brut-btn bg-green-200 text-sm flex-1 text-center">
+                              ✓ You Approved
+                            </span>
+                          )}
+                      </div>
+
+                      {proposal.approvals.length >=
+                        (multiSigInfo?.threshold || 0) && (
+                        <div className="mt-3 brut-card bg-green-100 p-3">
+                          <p className="text-sm text-green-800 font-bold">
+                            ✅ Threshold reached! Proposal will execute
+                            automatically.
                           </p>
                         </div>
+                      )}
+
+                      {proposal.approvals.length <
+                        (multiSigInfo?.threshold || 0) && (
+                        <p className="text-xs text-gray-600 mt-3">
+                          {(multiSigInfo?.threshold || 0) -
+                            proposal.approvals.length}{" "}
+                          more approval
+                          {(multiSigInfo?.threshold || 0) -
+                            proposal.approvals.length >
+                          1
+                            ? "s"
+                            : ""}{" "}
+                          needed
+                        </p>
                       )}
                     </div>
                   );
@@ -703,7 +844,9 @@ export default function VaultDetails() {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-black">
-                    {isMultiSig ? `Propose Withdrawal from ${vault.name}` : `Withdraw from ${vault.name}`}
+                    {isMultiSig
+                      ? `Propose Withdrawal from ${vault.name}`
+                      : `Withdraw from ${vault.name}`}
                   </h2>
                   <button
                     onClick={() => setShowWithdrawModal(false)}
@@ -715,15 +858,6 @@ export default function VaultDetails() {
 
                 {isMultiSig ? (
                   <div className="space-y-4">
-                    <div className="bg-blue-50 border border-blue-300 rounded-lg p-4">
-                      <p className="text-sm text-blue-900 font-bold mb-2">
-                        🔐 Multi-Signature Vault
-                      </p>
-                      <p className="text-xs text-blue-800">
-                        This is a multi-sig vault. Withdrawals require approval from multiple signers.
-                        Create a proposal below, and other signers can approve it.
-                      </p>
-                    </div>
                     <VaultWithdraw
                       vaultAddress={vault.address}
                       vaultTokens={vault.tokens}

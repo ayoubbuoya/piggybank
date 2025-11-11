@@ -64,11 +64,20 @@ class Proposal {
     public amount: u256,
     public recipient: Address,
     public timestamp: u64,
-  ) {}
+  ) { }
 
   // Serialize proposal to string for storage
   toString(): string {
-    return `${this.proposer.toString()}|${this.token.toString()}|${this.amount.toString()}|${this.recipient.toString()}|${this.timestamp.toString()}`;
+    // Store amount as bytes converted to hex string to avoid u256.from() issues
+    const amountBytes = u256ToBytes(this.amount);
+    let amountHex = '';
+    for (let i = 0; i < amountBytes.length; i++) {
+      const byte = amountBytes[i];
+      const hex = byte.toString(16);
+      amountHex += (byte < 16 ? '0' : '') + hex;
+    }
+
+    return `${this.proposer.toString()}|${this.token.toString()}|${amountHex}|${this.recipient.toString()}|${this.timestamp.toString()}`;
   }
 
   // Deserialize proposal from string
@@ -76,11 +85,20 @@ class Proposal {
     const parts = data.split('|');
     assert(parts.length == 5, 'Invalid proposal data');
 
+    // Parse amount from hex string
+    const amountHex = parts[2];
+    const amountBytes = new StaticArray<u8>(32);
+    for (let i = 0; i < 32 && i * 2 < amountHex.length; i++) {
+      const hexByte = amountHex.substr(i * 2, 2);
+      amountBytes[i] = U8.parseInt(hexByte, 16);
+    }
+    const amount = bytesToU256(amountBytes);
+
     return new Proposal(
       id,
       new Address(parts[0]),
       new Address(parts[1]),
-      u256.from(parts[2]),
+      amount,
       new Address(parts[3]),
       U64.parseInt(parts[4]),
     );
@@ -124,14 +142,14 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
   // Validate percentages sum to 100
   let totalPercentage: u64 = 0;
   const allTokensAddresses = new Array<string>();
-  
+
   for (let i = 0; i < tokensWithPercentage.length; i++) {
     const token = tokensWithPercentage[i];
     totalPercentage += token.percentage;
     tokensPercentagesMap.set(token.address.toString(), token.percentage);
     allTokensAddresses.push(token.address.toString());
   }
-  
+
   assert(totalPercentage == 100, 'Token percentages must sum to 100');
 
   // Parse vault name
@@ -184,7 +202,7 @@ export function constructor(binaryArgs: StaticArray<u8>): void {
 function isSigner(address: Address): bool {
   const signers = deserializeStringArray(Storage.get(SIGNERS_KEY));
   const addrStr = address.toString();
-  
+
   for (let i = 0; i < signers.length; i++) {
     if (signers[i] == addrStr) {
       return true;
