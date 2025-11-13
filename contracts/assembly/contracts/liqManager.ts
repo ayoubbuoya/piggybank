@@ -419,5 +419,4 @@ export function _getVaultTotalTokensAmounts(): u256[] {
   });
 }
 
-// Re-export MRC721 enumerable functions
-export * from '@massalabs/sc-standards/assembly/contracts/MRC721/enumerable';
+export * from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20';
