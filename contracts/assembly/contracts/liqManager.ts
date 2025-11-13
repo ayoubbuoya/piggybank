@@ -1,6 +1,7 @@
 import {
   Args,
   bytesToU256,
+  bytesToU32,
   bytesToU64,
   NoArg,
   stringToBytes,
@@ -34,6 +35,7 @@ import {
 import { _mint } from '@massalabs/sc-standards/assembly/contracts/MRC20/mintable/mint-internal';
 import { _burn } from '@massalabs/sc-standards/assembly/contracts/MRC20/burnable/burn-internal';
 import { _balance } from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20-internals';
+import { BinHelper } from './lib/binHelper';
 
 // Storage Keys
 export const PAIR_ADDRESS_KEY = 'pa';
@@ -383,7 +385,15 @@ export function getTokenYDecimals(): u8 {
 }
 
 export function _fetchPairSpotPrice(): u256 {
-  return new u256(1);
+  const pairAddress = Storage.get(PAIR_ADDRESS_KEY);
+  const pair = new IDusaPair(new Address(pairAddress));
+
+  const pairInfo = pair.getPairInformation();
+
+  return BinHelper.getPriceFromId(
+    pairInfo.activeId as u64,
+    bytesToU32(Storage.get(PAIR_BIN_STEP_KEY)) as u64,
+  );
 }
 
 export function _getVaultTotalTokensAmounts(): u256[] {
