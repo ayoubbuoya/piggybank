@@ -32,6 +32,8 @@ import {
   totalSupply as _totalSupply,
 } from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20';
 import { _mint } from '@massalabs/sc-standards/assembly/contracts/MRC20/mintable/mint-internal';
+import { _burn } from '@massalabs/sc-standards/assembly/contracts/MRC20/burnable/burn-internal';
+import { _balance } from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20-internals';
 
 // Storage Keys
 export const PAIR_ADDRESS_KEY = 'pa';
@@ -42,7 +44,6 @@ export const PAIR_TOKEN_X_DECIMALS_KEY: StaticArray<u8> = stringToBytes('ptxd');
 export const PAIR_TOKEN_Y_DECIMALS_KEY: StaticArray<u8> = stringToBytes('ptyd');
 export const INTERVALS_MS_KEY: StaticArray<u8> = stringToBytes('ims');
 export const ROUTER_ADDRESS_KEY = 'ra';
-export const USER_SHARE_KEY_PREFIX: StaticArray<u8> = stringToBytes('us_'); // + user address
 
 export function constructor(binaryArgs: StaticArray<u8>): void {
   // This line is important. It ensures that this function can't be called in the future.
@@ -171,18 +172,6 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   }
 
   // Mint LP Tokens to the user representing their share in the vault
-  const userShareStorageKey = userShareKey(callerAddress.toString());
-
-  const isPreviouslyDeposited = Storage.has(userShareStorageKey);
-
-  let totalUserShares: u256 = shares;
-
-  if (isPreviouslyDeposited) {
-    const previousShares: u256 = bytesToU256(Storage.get(userShareStorageKey));
-
-    totalUserShares = SafeMath256.add(previousShares, shares);
-  }
-
   _mint(new Args().add(callerAddress.toString()).add(shares).serialize());
 
   // TODO: Increase liquidity in the Current Position instead of just holding tokens until the next deffered call checkpoint
@@ -193,7 +182,6 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
       u256ToString(amountX),
       u256ToString(amountY),
       u256ToString(shares),
-      u256ToString(totalUserShares),
       u256ToString(totalSupply),
     ]),
   );
@@ -310,7 +298,57 @@ export function withdraw(binaryArgs: StaticArray<u8>): void {
   const args = new Args(binaryArgs);
 
   const toAddress = args.nextString().expect('toAddress argument is missing');
-  const amount = args.nextU256().expect('amount argument is missing');
+  const shares: u256 = args.nextU256().expect('shares argument is missing');
+
+  assert(shares > u256.Zero, 'ZERO_SHARES');
+
+  const userTotalShares: u256 = _balance(new Address(toAddress));
+
+  assert(userTotalShares >= shares, 'INSUFFICIENT_SHARES');
+
+  const tokenXAddress = Storage.get(PAIR_TOKEN_X_KEY);
+  const tokenYAddress = Storage.get(PAIR_TOKEN_Y_KEY);
+  const tokenX: IMRC20 = new IMRC20(new Address(tokenXAddress));
+  const tokenY: IMRC20 = new IMRC20(new Address(tokenYAddress));
+
+  // Calc the unused balances shares of teh user
+  const totalSupply: u256 = bytesToU256(_totalSupply(new Args().serialize()));
+
+  const balanceX: u256 = tokenX.balanceOf(Context.callee());
+  const balanceY: u256 = tokenY.balanceOf(Context.callee());
+
+  const unusedX = SafeMath256.div(
+    SafeMath256.mul(balanceX, shares),
+    totalSupply,
+  );
+
+  const unusedY = SafeMath256.div(
+    SafeMath256.mul(balanceY, shares),
+    totalSupply,
+  );
+
+  // TODO:  Withdraw the user liquiidity shares friom the current position, burn them and collect them to this address, for now we just withdraw the unused balances
+  const posX = u256.Zero;
+  const posY = u256.Zero;
+
+  const totalX = SafeMath256.add(unusedX, posX);
+  const totalY = SafeMath256.add(unusedY, posY);
+
+  // Transfer tokens to the user
+  tokenX.transfer(new Address(toAddress), totalX);
+  tokenY.transfer(new Address(toAddress), totalY);
+
+  // Burn the user shares
+  _burn(new Address(toAddress), shares);
+
+  generateEvent(
+    createEvent('TOKENS_WITHDRAWN', [
+      toAddress,
+      u256ToString(totalX),
+      u256ToString(totalY),
+      u256ToString(shares),
+    ]),
+  );
 
   // End the non-reentrant block
   ReentrancyGuard.endNonReentrant();
@@ -369,10 +407,6 @@ export function _getVaultTotalTokensAmounts(): u256[] {
       return balanceY;
     }
   });
-}
-
-export function userShareKey(userAddress: string): StaticArray<u8> {
-  return USER_SHARE_KEY_PREFIX.concat(stringToBytes(userAddress));
 }
 
 // Re-export MRC721 enumerable functions
