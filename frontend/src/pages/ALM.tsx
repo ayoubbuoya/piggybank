@@ -4,6 +4,7 @@ import {
   approveToken,
   deposit,
   fetchSpotPrice,
+  getLiqShares,
   getTokenXAddress,
   getTokenYAddress,
   getVaultTokensDetails,
@@ -24,6 +25,7 @@ export default function ALM() {
     }
 
     try {
+      const liqShares = await getLiqShares(connectedAccount);
       const price = await fetchSpotPrice(connectedAccount);
       const vaultTokensDetails = await getVaultTokensDetails(connectedAccount);
 
@@ -32,6 +34,7 @@ export default function ALM() {
         return;
       }
 
+      setLiqShares(liqShares);
       setSpotPrice(price);
       setTokenXDetails(vaultTokensDetails[0]);
       setTokenYDetails(vaultTokensDetails[1]);
@@ -92,6 +95,9 @@ export default function ALM() {
       <div className="brut-card bg-white p-6">
         <h2 className="text-xl font-bold mb-2">ALM</h2>
         <p className="text-gray-700">ALM page</p>
+        <p className="text-gray-700">
+          Liquidity Shares: {liqShares ?? "Loading..."}
+        </p>
         <p className="text-gray-700">Spot Price: {spotPrice ?? "Loading..."}</p>
         <div className="mt-4">
           <h3 className="font-semibold">Token X Details:</h3>

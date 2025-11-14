@@ -218,6 +218,25 @@ export async function getVaultTokensDetails(
   ];
 }
 
+export async function getLiqShares(connectedAccount: any): Promise<string> {
+  try {
+    const contractAddress = import.meta.env.VITE_LIQ_MANAGER_CONTRACT;
+
+    if (!contractAddress) {
+      throw new Error("Liq Manager contract address is not defined");
+    }
+
+    const contract = new MRC20(connectedAccount, contractAddress);
+
+    const balance = await contract.balanceOf(connectedAccount.address);
+
+    return formatUnits(balance, 18);
+  } catch (error) {
+    console.error("Error fetching liquidity shares:", error);
+    return "0";
+  }
+}
+
 export interface TokenDetails {
   address: string;
   decimals: number;
