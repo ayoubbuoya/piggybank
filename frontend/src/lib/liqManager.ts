@@ -237,6 +237,70 @@ export async function getLiqShares(connectedAccount: any): Promise<string> {
   }
 }
 
+export async function withdraw(
+  connectedAccount: any,
+  shares: number
+): Promise<{ success: boolean; error?: string }> {
+  const toastId = toast.loading(
+    "Withdrawing liquidity from the Liq Manager vault..."
+  );
+
+  try {
+    const contract = await getLiqManagerContract(connectedAccount);
+
+    const args = new Args()
+      .addString(connectedAccount.address)
+      .addU256(parseUnits(shares.toFixed(19), 18));
+
+    const operation = await contract.call("withdraw", args, {
+      coins: parseMas("0.1"),
+    });
+
+    toast.update(toastId, {
+      render: "Waiting for transaction confirmation...",
+      isLoading: true,
+    });
+
+    const status = await operation.waitSpeculativeExecution();
+
+    if (status === OperationStatus.SpeculativeSuccess) {
+      toast.update(toastId, {
+        render: "Liquidity withdrawn successfully!",
+        type: "success",
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: true };
+    } else {
+      const events = await operation.getSpeculativeEvents();
+      console.log("Withdraw failed, events:", events);
+
+      toast.update(toastId, {
+        render: "Liquidity withdrawal failed.",
+        type: "error",
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: false, error: "Withdrawal Transaction failed" };
+    }
+  } catch (error) {
+    console.error("Error withdrawing liquidity:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    toast.update(toastId, {
+      render: `Error: ${errorMessage}`,
+      type: "error",
+      isLoading: false,
+      autoClose: 5000,
+    });
+
+    return { success: false, error: errorMessage };
+  }
+}
+
 export interface TokenDetails {
   address: string;
   decimals: number;

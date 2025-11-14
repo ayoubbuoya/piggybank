@@ -9,6 +9,7 @@ import {
   getTokenYAddress,
   getVaultTokensDetails,
   TokenDetails,
+  withdraw,
 } from "../lib/liqManager";
 
 export default function ALM() {
@@ -73,9 +74,24 @@ export default function ALM() {
     }
   };
 
+  const handleWithdraw = async () => {
+    try {
+      if (!connectedAccount) {
+        console.error("No connected account");
+        return;
+      }
+
+      const shares = Number(liqShares) / 2; // Example amount of shares to withdraw
+
+      await withdraw(connectedAccount, shares);
+    } catch (error) {
+      console.error("Error during withdrawal:", error);
+    }
+  };
+
   useEffect(() => {
     initFetches();
-  }, []);
+  }, [connectedAccount]);
 
   if (!connectedAccount) {
     return (
@@ -125,7 +141,12 @@ export default function ALM() {
         </div>
 
         <div className="mt-4 flex">
-          <button className="brut-btn bg-blue-300 mr-2">Withdraw</button>
+          <button
+            onClick={handleWithdraw}
+            className="brut-btn bg-blue-300 mr-2"
+          >
+            Withdraw
+          </button>
           <button onClick={handleDeposit} className="brut-btn bg-lime-300">
             Deposit
           </button>
