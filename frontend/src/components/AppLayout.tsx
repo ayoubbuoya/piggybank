@@ -44,6 +44,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <NavLink to="/dca/dashboard">DCA</NavLink>
             {/* <NavLink to="/analytics">Analytics</NavLink> */}
             <NavLink to="/about">About</NavLink>
+            <NavLink to="/alm">ALM</NavLink>
             {/* <NavLink to="/settings">Settings</NavLink> */}
           </nav>
           <div className="ml-auto">
