@@ -409,10 +409,12 @@ function _fetchPairSpotPrice(): u256 {
 
   const pairInfo = pair.getPairInformation();
 
-  return BinHelper.getPriceFromId(
+  let price = BinHelper.getPriceFromId(
     pairInfo.activeId as u64,
     bytesToU32(Storage.get(PAIR_BIN_STEP_KEY)) as u64,
   );
+
+  return SafeMath256.div(price, PRECISION);
 }
 
 export function _getVaultTotalTokensAmounts(): TokensAmount {
