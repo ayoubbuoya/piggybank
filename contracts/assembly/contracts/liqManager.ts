@@ -299,7 +299,48 @@ export function addLiquidity(binaryArgs: StaticArray<u8>): void {
 export function removeLiquidity(binaryArgs: StaticArray<u8>): void {
   ReentrancyGuard.nonReentrant();
 
-  // End the non-reentrant block
+  const args = new Args(binaryArgs);
+
+  const ids = args.nextFixedSizeArray<u64>().expect('ids argument is missing');
+  const amounts = args.nextFixedSizeArray<u256>().expect('amounts argument is missing');
+
+  assert(ids.length == amounts.length, 'IDS_AMOUNTS_LENGTH_MISMATCH');
+  assert(ids.length > 0, 'EMPTY_ARRAYS');
+
+  const pairAddress = Storage.get(PAIR_ADDRESS_KEY);
+  const pair = new IDusaPair(new Address(pairAddress));
+
+  const tokenX: IMRC20 = pair.getTokenX();
+  const tokenY: IMRC20 = pair.getTokenY();
+  const binStep: u32 = bytesToU32(Storage.get(PAIR_BIN_STEP_KEY));
+
+  const currentContractAddress = Context.callee();
+  const router = new IDusaRouter(new Address(Storage.get(ROUTER_ADDRESS_KEY)));
+
+  // Remove liquidity from the pair
+  const removedAmounts = router.removeLiquidity(
+    tokenX._origin,
+    tokenY._origin,
+    binStep,
+    u256.Zero, // amountXMin - no slippage protection for now
+    u256.Zero, // amountYMin - no slippage protection for now
+    ids,
+    amounts,
+    currentContractAddress,
+    u64.MAX_VALUE, // deadline
+    20000000 // masToSend
+  );
+
+  generateEvent(
+    createEvent('LIQUIDITY_REMOVED', [
+      Context.caller().toString(),
+      u256ToString(removedAmounts.amountX),
+      u256ToString(removedAmounts.amountY),
+      ids.toString(),
+      arrayToString(amounts),
+    ]),
+  );
+
   ReentrancyGuard.endNonReentrant();
 }
 
