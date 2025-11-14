@@ -11,6 +11,7 @@ import { getScByteCode } from '../utils';
 export async function deployLiqManager(
   provider: Web3Provider,
   poolAddress: string = 'AS112Wdy9pM4fvLNLHQXyf7uam9waMPdG5ekr4vxCyQHPkrMMPPY',
+  routerAddress: string = 'AS1XqtvX3rz2RWbnqLfaYVKEjM3VS5pny9yKDdXcmJ5C1vrcLEFd',
   intervalsMs: number = 60000,
 ): Promise<SmartContract> {
   console.log('Deploying liq manager contract...');
@@ -19,6 +20,7 @@ export async function deployLiqManager(
 
   const constructorArgs = new Args()
     .addString(poolAddress)
+    .addString(routerAddress)
     .addU64(BigInt(intervalsMs));
 
   const contract = await SmartContract.deploy(
