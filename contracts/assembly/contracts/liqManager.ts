@@ -5,6 +5,7 @@ import {
   bytesToU64,
   NoArg,
   stringToBytes,
+  u256ToBytes,
   u64ToBytes,
   u8toByte,
 } from '@massalabs/as-types';
@@ -292,6 +293,18 @@ export function addLiquidity(binaryArgs: StaticArray<u8>): void {
 
   // End the non-reentrant block
   ReentrancyGuard.endNonReentrant();
+}
+
+export function removeLiquidity(binaryArgs: StaticArray<u8>): void {
+  ReentrancyGuard.nonReentrant();
+
+  // End the non-reentrant block
+  ReentrancyGuard.endNonReentrant();
+}
+
+export function fetchPairSpotPrice(): StaticArray<u8> {
+  const spotPrice = _fetchPairSpotPrice();
+  return u256ToBytes(spotPrice);
 }
 
 export function withdraw(binaryArgs: StaticArray<u8>): void {
