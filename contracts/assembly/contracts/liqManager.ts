@@ -398,7 +398,12 @@ export function getTokenYDecimals(): u8 {
   return bytes[0];
 }
 
-export function _fetchPairSpotPrice(): u256 {
+export function fetchSpotPrice(): StaticArray<u8> {
+  const spotPrice = _fetchPairSpotPrice();
+  return u256ToBytes(spotPrice);
+}
+
+function _fetchPairSpotPrice(): u256 {
   const pairAddress = Storage.get(PAIR_ADDRESS_KEY);
   const pair = new IDusaPair(new Address(pairAddress));
 
