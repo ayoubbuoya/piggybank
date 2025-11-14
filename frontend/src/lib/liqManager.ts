@@ -2,6 +2,7 @@ import {
   Args,
   bytesToStr,
   formatUnits,
+  MRC20,
   OperationStatus,
   parseMas,
   parseUnits,
@@ -23,11 +24,11 @@ export async function getLiqManagerContract(
 }
 
 export async function deposit(
-  connectedAccount: Provider,
+  connectedAccount: any,
   amountX: string,
   amountY: string,
-  xDecimals: number = 9,
-  yDecimals: number = 6
+  xDecimals: number,
+  yDecimals: number
 ): Promise<{ success: boolean; error?: string }> {
   const toastId = toast.loading(
     "Depositing liquidity to the Liq Manager vault..."
@@ -90,6 +91,77 @@ export async function deposit(
   }
 }
 
+export async function approveToken(
+  connectedAccount: any,
+  tokenDetail: TokenDetails,
+  amount: string
+): Promise<{ success: boolean; error?: string }> {
+  const toastId = toast.loading(`Approving ${tokenDetail.symbol} spending...`);
+
+  try {
+    const spenderAddress = import.meta.env.VITE_LIQ_MANAGER_CONTRACT;
+
+    if (!spenderAddress) {
+      throw new Error("Liq Manager contract address is not defined");
+    }
+
+    const tokenContract = new MRC20(connectedAccount, tokenDetail.address);
+
+    const amountParsed = parseUnits(amount, tokenDetail.decimals);
+
+    const operation = await tokenContract.increaseAllowance(
+      spenderAddress,
+      amountParsed,
+      {
+        coins: parseMas("0.1"),
+      }
+    );
+
+    toast.update(toastId, {
+      render: "Waiting for approval confirmation...",
+      isLoading: true,
+    });
+
+    const status = await operation.waitSpeculativeExecution();
+
+    if (status === OperationStatus.SpeculativeSuccess) {
+      toast.update(toastId, {
+        render: `${tokenDetail.symbol} spending approved successfully!`,
+        type: "success",
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: true };
+    } else {
+      const events = await operation.getSpeculativeEvents();
+      console.log("Approval failed, events:", events);
+
+      toast.update(toastId, {
+        render: "Token approval failed",
+        type: "error",
+        isLoading: false,
+        autoClose: 5000,
+      });
+
+      return { success: false, error: "Token approval failed" };
+    }
+  } catch (error) {
+    console.error("Error approving token:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    toast.update(toastId, {
+      render: `Error: ${errorMessage}`,
+      type: "error",
+      isLoading: false,
+      autoClose: 5000,
+    });
+
+    return { success: false, error: errorMessage };
+  }
+}
+
 export async function fetchSpotPrice(connectedAccount: any): Promise<string> {
   try {
     const contract = await getLiqManagerContract(connectedAccount);
@@ -124,4 +196,30 @@ export async function getTokenYAddress(connectedAccount: any): Promise<string> {
   const result = await contract.read("getTokenYAddress");
   const tokenYAddressBytes = result.value;
   return bytesToStr(tokenYAddressBytes);
+}
+
+export async function getVaultTokensDetails(
+  connectedAccount: any
+): Promise<TokenDetails[]> {
+  const tokenXAddress = await getTokenXAddress(connectedAccount);
+  const tokenYAddress = await getTokenYAddress(connectedAccount);
+
+  const tokenXContract = new MRC20(connectedAccount, tokenXAddress);
+  const tokenYContract = new MRC20(connectedAccount, tokenYAddress);
+
+  const tokenXDecimals = await tokenXContract.decimals();
+  const tokenYDecimals = await tokenYContract.decimals();
+  const tokenXSymbol = await tokenXContract.symbol();
+  const tokenYSymbol = await tokenYContract.symbol();
+
+  return [
+    { address: tokenXAddress, decimals: tokenXDecimals, symbol: tokenXSymbol },
+    { address: tokenYAddress, decimals: tokenYDecimals, symbol: tokenYSymbol },
+  ];
+}
+
+export interface TokenDetails {
+  address: string;
+  decimals: number;
+  symbol: string;
 }
