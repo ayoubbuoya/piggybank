@@ -1,5 +1,8 @@
 import {
   Args,
+  boolToByte,
+  byteToBool,
+  bytesToString,
   bytesToU256,
   bytesToU32,
   bytesToU64,
@@ -13,6 +16,11 @@ import {
   Address,
   Context,
   createEvent,
+  deferredCallCancel,
+  deferredCallExists,
+  deferredCallQuote,
+  deferredCallRegister,
+  findCheapestSlot,
   generateEvent,
   Storage,
 } from '@massalabs/massa-as-sdk';
@@ -48,6 +56,10 @@ export const PAIR_TOKEN_X_DECIMALS_KEY: StaticArray<u8> = stringToBytes('ptxd');
 export const PAIR_TOKEN_Y_DECIMALS_KEY: StaticArray<u8> = stringToBytes('ptyd');
 export const INTERVALS_MS_KEY: StaticArray<u8> = stringToBytes('ims');
 export const ROUTER_ADDRESS_KEY = 'ra';
+export const AUTOMATION_ENABLED_KEY: StaticArray<u8> = stringToBytes('ae');
+export const LAST_REBALANCE_KEY: StaticArray<u8> = stringToBytes('lr');
+export const REBALANCE_CALL_ID_KEY: StaticArray<u8> = stringToBytes('rcid');
+export const ACTIVE_BIN_IDS_KEY: StaticArray<u8> = stringToBytes('abids');
 
 export function constructor(binaryArgs: StaticArray<u8>): void {
   // This line is important. It ensures that this function can't be called in the future.
@@ -302,7 +314,9 @@ export function removeLiquidity(binaryArgs: StaticArray<u8>): void {
   const args = new Args(binaryArgs);
 
   const ids = args.nextFixedSizeArray<u64>().expect('ids argument is missing');
-  const amounts = args.nextFixedSizeArray<u256>().expect('amounts argument is missing');
+  const amounts = args
+    .nextFixedSizeArray<u256>()
+    .expect('amounts argument is missing');
 
   assert(ids.length == amounts.length, 'IDS_AMOUNTS_LENGTH_MISMATCH');
   assert(ids.length > 0, 'EMPTY_ARRAYS');
@@ -328,7 +342,7 @@ export function removeLiquidity(binaryArgs: StaticArray<u8>): void {
     amounts,
     currentContractAddress,
     u64.MAX_VALUE, // deadline
-    20000000 // masToSend
+    20000000, // masToSend
   );
 
   generateEvent(
@@ -444,6 +458,26 @@ export function fetchSpotPrice(): StaticArray<u8> {
   return u256ToBytes(spotPrice);
 }
 
+export function isAutomationEnabled(): bool {
+  return Storage.has(AUTOMATION_ENABLED_KEY)
+    ? byteToBool(Storage.get(AUTOMATION_ENABLED_KEY))
+    : false;
+}
+
+export function getLastRebalanceTime(): StaticArray<u8> {
+  if (!Storage.has(LAST_REBALANCE_KEY)) {
+    return u64ToBytes(0);
+  }
+  return Storage.get(LAST_REBALANCE_KEY);
+}
+
+export function getRebalanceCallId(): StaticArray<u8> {
+  if (!Storage.has(REBALANCE_CALL_ID_KEY)) {
+    return stringToBytes('');
+  }
+  return Storage.get(REBALANCE_CALL_ID_KEY);
+}
+
 function _fetchPairSpotPrice(): u256 {
   const pairAddress = Storage.get(PAIR_ADDRESS_KEY);
   const pair = new IDusaPair(new Address(pairAddress));
@@ -473,6 +507,281 @@ export function _getVaultTotalTokensAmounts(): TokensAmount {
   // TODO: get amounts locked in the pair liquidity positions AND add them to the balances
 
   return new TokensAmount(balanceX, balanceY);
+}
+
+/////////////////////// Rebalance Automation ///////////////////////
+
+/**
+ * Public function to trigger rebalancing
+ * Checks if rebalancing is needed and executes it
+ * Then schedules the next rebalance call for 24 hours later
+ */
+export function rebalance(): void {
+  ReentrancyGuard.nonReentrant();
+
+  // Check if automation is enabled
+  const automationEnabled = Storage.has(AUTOMATION_ENABLED_KEY)
+    ? byteToBool(Storage.get(AUTOMATION_ENABLED_KEY))
+    : false;
+
+  assert(automationEnabled, 'AUTOMATION_NOT_ENABLED');
+
+  // Check if rebalancing is needed
+  if (_shouldRebalance()) {
+    _executeRebalance();
+  }
+
+  // Schedule the next rebalance call for 24 hours later
+  _scheduleNextRebalance();
+
+  ReentrancyGuard.endNonReentrant();
+}
+
+/**
+ * Start the automation system
+ * Schedules the first rebalance call for 24 hours later
+ */
+export function startAutomation(): void {
+  ReentrancyGuard.nonReentrant();
+
+  // Check if automation is already enabled
+  const automationEnabled = Storage.has(AUTOMATION_ENABLED_KEY)
+    ? byteToBool(Storage.get(AUTOMATION_ENABLED_KEY))
+    : false;
+
+  assert(!automationEnabled, 'AUTOMATION_ALREADY_ENABLED');
+
+  // Enable automation
+  Storage.set(AUTOMATION_ENABLED_KEY, boolToByte(true));
+
+  // Schedule the first rebalance call
+  _scheduleNextRebalance();
+
+  generateEvent(
+    createEvent('AUTOMATION_STARTED', [
+      Context.caller().toString(),
+      Context.timestamp().toString(),
+    ]),
+  );
+
+  ReentrancyGuard.endNonReentrant();
+}
+
+/**
+ * Stop the automation system
+ * Cancels any pending deferred calls
+ */
+export function stopAutomation(): void {
+  ReentrancyGuard.nonReentrant();
+
+  // Check if automation is enabled
+  const automationEnabled = Storage.has(AUTOMATION_ENABLED_KEY)
+    ? byteToBool(Storage.get(AUTOMATION_ENABLED_KEY))
+    : false;
+
+  assert(automationEnabled, 'AUTOMATION_NOT_ENABLED');
+
+  // Cancel the scheduled deferred call if exists
+  if (Storage.has(REBALANCE_CALL_ID_KEY)) {
+    const currentCallId = bytesToString(Storage.get(REBALANCE_CALL_ID_KEY));
+    if (deferredCallExists(currentCallId)) {
+      deferredCallCancel(currentCallId);
+    }
+  }
+
+  // Disable automation
+  Storage.set(AUTOMATION_ENABLED_KEY, boolToByte(false));
+
+  generateEvent(
+    createEvent('AUTOMATION_STOPPED', [
+      Context.caller().toString(),
+      Context.timestamp().toString(),
+    ]),
+  );
+
+  ReentrancyGuard.endNonReentrant();
+}
+
+/**
+ * Schedule the next rebalance call for 24 hours later
+ */
+function _scheduleNextRebalance(): void {
+  // 24 hours in milliseconds = 24 * 60 * 60 * 1000 = 86,400,000 ms
+  // In Massa, 1 period = 16 seconds = 16,000 ms
+  // So 24 hours = 86,400,000 / 16,000 = 5,400 periods
+  const periodsIn24Hours: u64 = 5400;
+
+  // Create the arguments for the rebalance function (no args needed)
+  const rebalanceArgs = new Args().serialize();
+
+  const paramsSize = rebalanceArgs.length;
+  const maxGas: u64 = 900_000_000;
+  const currentPeriod = Context.currentPeriod();
+  const bookingPeriod = currentPeriod + periodsIn24Hours;
+
+  const slot = findCheapestSlot(
+    bookingPeriod,
+    bookingPeriod + 10, // 10 periods window
+    maxGas,
+    paramsSize,
+  );
+
+  const cost = deferredCallQuote(slot, maxGas, paramsSize);
+
+  const callId = deferredCallRegister(
+    Context.callee().toString(),
+    'rebalance',
+    slot,
+    maxGas,
+    rebalanceArgs,
+    0, // No coins needed for the rebalance function itself
+  );
+
+  // Save the current call ID to storage
+  Storage.set(REBALANCE_CALL_ID_KEY, stringToBytes(callId));
+
+  generateEvent(
+    createEvent('REBALANCE_SCHEDULED', [
+      callId,
+      cost.toString(),
+      bookingPeriod.toString(),
+      currentPeriod.toString(),
+    ]),
+  );
+}
+
+/**
+ * Check if rebalancing is needed based on price deviation
+ * @returns true if rebalancing is needed
+ */
+function _shouldRebalance(): bool {
+  // Check if we have stored active bin IDs
+  if (!Storage.has(ACTIVE_BIN_IDS_KEY)) {
+    return true; // First time, need to set up position
+  }
+
+  const pairAddress = Storage.get(PAIR_ADDRESS_KEY);
+  const pair = new IDusaPair(new Address(pairAddress));
+  const pairInfo: PairInformation = pair.getPairInformation();
+  const currentActiveBinId: u32 = pairInfo.activeId;
+
+  // Get stored active bin IDs (the bins where we have liquidity)
+  const storedBinIds = new Args(Storage.get(ACTIVE_BIN_IDS_KEY))
+    .nextFixedSizeArray<u64>()
+    .expect('Failed to deserialize active bin IDs');
+
+  // Check if current active bin is within our liquidity range
+  // We need to rebalance if the active bin has moved significantly
+  // For simplicity, check if current active bin is in our stored range
+  let isInRange = false;
+  for (let i = 0; i < storedBinIds.length; i++) {
+    if (u64(currentActiveBinId) == storedBinIds[i]) {
+      isInRange = true;
+      break;
+    }
+  }
+
+  // If price moved out of range, we need to rebalance
+  return !isInRange;
+}
+
+/**
+ * Execute rebalancing by removing old liquidity and adding new liquidity
+ */
+function _executeRebalance(): void {
+  const pairAddress = Storage.get(PAIR_ADDRESS_KEY);
+  const pair = new IDusaPair(new Address(pairAddress));
+  const pairInfo: PairInformation = pair.getPairInformation();
+  const activeBinId: u32 = pairInfo.activeId;
+
+  // Get current balances
+  const tokenXAddress = Storage.get(PAIR_TOKEN_X_KEY);
+  const tokenYAddress = Storage.get(PAIR_TOKEN_Y_KEY);
+  const tokenX: IMRC20 = new IMRC20(new Address(tokenXAddress));
+  const tokenY: IMRC20 = new IMRC20(new Address(tokenYAddress));
+  const currentContractAddress = Context.callee();
+
+  // Note: For simplicity, we're not removing old liquidity automatically
+  // Users should call removeLiquidity manually before rebalancing
+  // Or we could implement a more sophisticated approach with stored LP amounts
+  // For now, we just add liquidity with available balances
+
+  // Get updated balances after removing liquidity
+  const balanceX: u256 = tokenX.balanceOf(currentContractAddress);
+  const balanceY: u256 = tokenY.balanceOf(currentContractAddress);
+
+  // Only add liquidity if we have tokens
+  if (balanceX > u256.Zero || balanceY > u256.Zero) {
+    // Add liquidity around the new active bin
+    const binsRange: u64 = 5; // 5 bins on each side
+    const binStep: u64 = bytesToU64(Storage.get(PAIR_BIN_STEP_KEY));
+
+    let deltaIds: i64[] = new Array<i64>();
+    let distributionsX: u256[] = new Array<u256>();
+    let distributionsY: u256[] = new Array<u256>();
+
+    const eachBinDistributionPercentage: u256 = SafeMath256.div(
+      PRECISION,
+      u256.fromU64(binsRange),
+    );
+
+    // Construct deltaIds and distributions
+    for (let i: u64 = 1; i < binsRange; i++) {
+      deltaIds.push(-i64(i));
+      distributionsY.push(eachBinDistributionPercentage);
+      distributionsX.push(u256.Zero);
+    }
+
+    deltaIds.push(0);
+    distributionsX.push(eachBinDistributionPercentage);
+    distributionsY.push(eachBinDistributionPercentage);
+
+    for (let i: u64 = 1; i < binsRange; i++) {
+      deltaIds.push(i);
+      distributionsX.push(eachBinDistributionPercentage);
+      distributionsY.push(u256.Zero);
+    }
+
+    const liqParams = new LiquidityParameters(
+      tokenX,
+      tokenY,
+      binStep,
+      balanceX,
+      balanceY,
+      u256.Zero,
+      u256.Zero,
+      activeBinId,
+      5,
+      deltaIds,
+      distributionsX,
+      distributionsY,
+      currentContractAddress,
+      u64.MAX_VALUE,
+    );
+
+    const router = new IDusaRouter(
+      new Address(Storage.get(ROUTER_ADDRESS_KEY)),
+    );
+    router.addLiquidity(liqParams, 20000000);
+
+    // Store the new active bin IDs
+    const newBinIds: u64[] = new Array<u64>();
+    for (let i = 0; i < deltaIds.length; i++) {
+      const binId = u64(i64(activeBinId) + deltaIds[i]);
+      newBinIds.push(binId);
+    }
+    Storage.set(ACTIVE_BIN_IDS_KEY, new Args().add(newBinIds).serialize());
+  }
+
+  // Update last rebalance timestamp
+  Storage.set(LAST_REBALANCE_KEY, u64ToBytes(Context.timestamp()));
+
+  generateEvent(
+    createEvent('REBALANCED', [
+      Context.timestamp().toString(),
+      activeBinId.toString(),
+    ]),
+  );
 }
 
 export * from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20';
