@@ -37,6 +37,7 @@ import { _mint } from '@massalabs/sc-standards/assembly/contracts/MRC20/mintable
 import { _burn } from '@massalabs/sc-standards/assembly/contracts/MRC20/burnable/burn-internal';
 import { _balance } from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20-internals';
 import { BinHelper } from './lib/binHelper';
+import { TokensAmount } from './structs/types';
 
 // Storage Keys
 export const PAIR_ADDRESS_KEY = 'pa';
@@ -160,8 +161,8 @@ export function deposit(binaryArgs: StaticArray<u8>): void {
   // Get toal amounts in the vault
   const totals = _getVaultTotalTokensAmounts();
 
-  const totalX = totals[0];
-  const totalY = totals[1];
+  const totalX = totals.amountX;
+  const totalY = totals.amountY;
 
   if (totalSupply > u256.Zero) {
     const vaultXPricedInTokenY = SafeMath256.div(
@@ -409,7 +410,7 @@ export function _fetchPairSpotPrice(): u256 {
   );
 }
 
-export function _getVaultTotalTokensAmounts(): u256[] {
+export function _getVaultTotalTokensAmounts(): TokensAmount {
   const tokenXAddress = Storage.get(PAIR_TOKEN_X_KEY);
   const tokenYAddress = Storage.get(PAIR_TOKEN_Y_KEY);
 
@@ -418,18 +419,12 @@ export function _getVaultTotalTokensAmounts(): u256[] {
 
   const currentContractAddress = Context.callee();
 
-  const balanceX = tokenX.balanceOf(currentContractAddress);
-  const balanceY = tokenY.balanceOf(currentContractAddress);
+  const balanceX: u256 = tokenX.balanceOf(currentContractAddress);
+  const balanceY: u256 = tokenY.balanceOf(currentContractAddress);
 
   // TODO: get amounts locked in the pair liquidity positions AND add them to the balances
 
-  return new Array<u256>(2).fill(u256.Zero).map((_, i) => {
-    if (i == 0) {
-      return balanceX;
-    } else {
-      return balanceY;
-    }
-  });
+  return new TokensAmount(balanceX, balanceY);
 }
 
 export * from '@massalabs/sc-standards/assembly/contracts/MRC20/MRC20';
