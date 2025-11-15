@@ -35,16 +35,27 @@ export async function deposit(
   );
 
   try {
+    console.log("💰 Starting deposit:");
+    console.log("  - Amount X:", amountX, "decimals:", xDecimals);
+    console.log("  - Amount Y:", amountY, "decimals:", yDecimals);
+
     const contract = await getLiqManagerContract(connectedAccount);
+    console.log("  - Contract address:", contract.address);
+
+    const parsedAmountX = parseUnits(amountX, xDecimals);
+    const parsedAmountY = parseUnits(amountY, yDecimals);
+    console.log("  - Parsed Amount X:", parsedAmountX.toString());
+    console.log("  - Parsed Amount Y:", parsedAmountY.toString());
+
     const args = new Args()
-      .addU256(parseUnits(amountX, xDecimals))
-      .addU256(parseUnits(amountY, yDecimals));
+      .addU256(parsedAmountX)
+      .addU256(parsedAmountY);
 
     const operation = await contract.call("deposit", args, {
       coins: parseMas("0.1"),
     });
 
-    console.log("Deposit transaction sent:", operation.id);
+    console.log("✅ Deposit transaction sent:", operation.id);
 
     toast.update(toastId, {
       render: "Waiting for transaction confirmation...",
@@ -52,8 +63,12 @@ export async function deposit(
     });
 
     const status = await operation.waitSpeculativeExecution();
+    console.log("📊 Transaction status:", status);
 
     if (status === OperationStatus.SpeculativeSuccess) {
+      const events = await operation.getSpeculativeEvents();
+      console.log("✅ Deposit successful! Events:", events);
+
       toast.update(toastId, {
         render: "Liquidity deposited successfully!",
         type: "success",
@@ -64,7 +79,7 @@ export async function deposit(
       return { success: true };
     } else {
       const events = await operation.getSpeculativeEvents();
-      console.log("Deposit failed, events:", events);
+      console.log("❌ Deposit failed, events:", events);
 
       toast.update(toastId, {
         render: "Liquidity deposit failed.",
@@ -76,7 +91,7 @@ export async function deposit(
       return { success: false, error: "Deposit Transaction failed" };
     }
   } catch (error) {
-    console.error("Error depositing liquidity:", error);
+    console.error("❌ Error depositing liquidity:", error);
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
 
@@ -218,9 +233,14 @@ export async function getVaultTokensDetails(
   ];
 }
 
-export async function getLiqShares(connectedAccount: any): Promise<string> {
+export async function getLiqShares(
+  connectedAccount: any
+): Promise<{ formatted: string; raw: string }> {
   try {
     const contractAddress = import.meta.env.VITE_LIQ_MANAGER_CONTRACT;
+
+    console.log("🔍 getLiqShares - Contract Address:", contractAddress);
+    console.log("🔍 getLiqShares - User Address:", connectedAccount.address);
 
     if (!contractAddress) {
       throw new Error("Liq Manager contract address is not defined");
@@ -228,12 +248,18 @@ export async function getLiqShares(connectedAccount: any): Promise<string> {
 
     const contract = new MRC20(connectedAccount, contractAddress);
 
+    console.log("🔍 getLiqShares - Calling balanceOf...");
     const balance = await contract.balanceOf(connectedAccount.address);
 
-    return formatUnits(balance, 18);
+    console.log("🔍 getLiqShares - Raw balance (u256):", balance.toString());
+
+    const formattedBalance = formatUnits(balance, 18);
+    console.log("🔍 getLiqShares - Formatted balance:", formattedBalance);
+
+    return { formatted: formattedBalance, raw: balance.toString() };
   } catch (error) {
-    console.error("Error fetching liquidity shares:", error);
-    return "0";
+    console.error("❌ Error fetching liquidity shares:", error);
+    return { formatted: "0", raw: "0" };
   }
 }
 
